@@ -1,6 +1,8 @@
 # HttpMock
 An visual tool for mocking and proxying http requests
 
+![Main window of the HttpMock](docs/images/httpmock.png?raw=true)
+
 # Preparing Environment
 Include following lines in hosts archive:<br/>
 __127.0.0.1 localhost.estatico.com.br<br/>
