@@ -1,5 +1,5 @@
 # HttpMock
-An easy tool for mocking and proxying http requests
+An visual tool for mocking and proxying http requests
 
 # Preparing Environment
 Include following lines in hosts archive:<br/>
