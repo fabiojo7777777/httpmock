@@ -2,7 +2,7 @@
 An easy tool for mocking http requests
 
 # Preparing HttpMock locally
-Include following lines in hosts archive:
+Include following lines in hosts archive:<br/>
   127.0.0.1 localhost.estatico.com.br<br/>
   127.0.0.1 localhost.dinamico.com.br<br/>
   127.0.0.1 offline.estatico.com.br<br/>
