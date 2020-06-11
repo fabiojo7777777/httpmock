@@ -1,7 +1,7 @@
 # HttpMock
 An easy tool for mocking and proxying http requests
 
-# Preparing HttpMock locally
+# Preparing Environment
 Include following lines in hosts archive:<br/>
 __127.0.0.1 localhost.estatico.com.br<br/>
   127.0.0.1 localhost.dinamico.com.br<br/>
