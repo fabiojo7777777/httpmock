@@ -3,12 +3,12 @@ An easy tool for mocking http requests
 
 # Preparing HttpMock locally
 Include following lines in hosts archive:<br/>
-  127.0.0.1 localhost.estatico.com.br<br/>
+__127.0.0.1 localhost.estatico.com.br<br/>
   127.0.0.1 localhost.dinamico.com.br<br/>
   127.0.0.1 offline.estatico.com.br<br/>
   127.0.0.1 offline.dinamico.com.br<br/>
   127.0.0.1 estatico.com.br<br/>
-  127.0.0.1 dinamico.com.br<br/>
+  127.0.0.1 dinamico.com.br__<br/>
 Import the project in Eclipse IDE 
   
 # 1.1 Running Online mode showcase:
