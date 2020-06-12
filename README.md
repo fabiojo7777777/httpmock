@@ -21,7 +21,7 @@ Import the project in Eclipse IDE
 5. Type httpmock in "Project"
 6. Select br.com.httpmock.Main in "Main class" field
 7. Click on Arguments
-8. Type --config offline.conf
+8. Type --config online.conf
 9. Apply
 10. Run
 11. Access http://localhost.dinamico.com to view the google page proxied and to get offline stubs
