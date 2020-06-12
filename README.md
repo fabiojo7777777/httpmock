@@ -39,7 +39,7 @@ Import the project in Eclipse IDE
 9. Type --config offline.conf
 10. Apply
 11. Run
-12. Access http://localhost.dinamico.com to view the google page proxied
+12. Access http://localhost.dinamico.com to view the google page proxied in OFFLINE mode (without accessing the network)
 13. Stop tool clicking on "X"
 
 # Contributing
