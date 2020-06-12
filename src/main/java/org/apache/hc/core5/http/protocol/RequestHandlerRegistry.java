@@ -123,7 +123,7 @@ public class RequestHandlerRegistry<T> implements HttpRequestMapper<T>
         if (patternMatcher == null)
         {
             // if the request host is not mapped, redirects the request to the
-            // localhost [the default mapping on Easymock] mapping
+            // localhost [the default mapping on Httpmock] mapping
             patternMatcher = getPatternMatcher("localhost");
             if (patternMatcher == null)
             {
