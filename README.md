@@ -3,7 +3,7 @@ An visual tool for mocking and proxying http requests
 
 ![Main window of the HttpMock](docs/images/httpmock.png?raw=true)
 
-# Preparing Environment
+# Preparing the Environment
 Include following lines in hosts archive:<br/>
 __127.0.0.1 localhost.estatico.com.br<br/>
   127.0.0.1 localhost.dinamico.com.br<br/>
@@ -13,7 +13,7 @@ __127.0.0.1 localhost.estatico.com.br<br/>
   127.0.0.1 dinamico.com.br__<br/>
 Import the project in Eclipse IDE 
   
-# 1.1 Running Online mode showcase in Eclipse IDE:
+# 1.1 Running Online mode showcase at Eclipse IDE:
 1. Click on Run Configurations...
 2. Right click on Java Application
 3. New Configuration
@@ -27,7 +27,7 @@ Import the project in Eclipse IDE
 11. Access http://localhost.dinamico.com to view the google page proxied and to get offline stubs
 12. Stop tool clicking on "X"
 
-# 1.2 Running Offline mode showcase in Eclipse IDE:
+# 1.2 Running Offline mode showcase at Eclipse IDE:
 1. Run Online mode showcase at once
 2. Click on Run Configurations...
 3. Right click on Java Application
