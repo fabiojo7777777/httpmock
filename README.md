@@ -41,3 +41,7 @@ Import the project in Eclipse IDE
 11. Run
 12. Access http://localhost.dinamico.com to view the google page proxied
 13. Stop tool clicking on "X"
+
+# Contributing
+We welcome bug fixes and new features in the form of pull requests.
+If you'd like to contribute, you are welcome too.
