@@ -65,7 +65,7 @@ public class UrlReplacer
             matchedLength = i - searchStartIndex + 1;
 
             char characterValue = (char) (sb.charAt(i) & 0xff); // 256 ASCII CHARACTERS
-            debug(String.format("%2d, %2d %1s => ", i, (int) characterIndex, characterValue));
+            debug(String.format("%3d, %3d %1s =>", i, (int) characterIndex, characterValue));
             boolean notFound = true;
             for (int partitionNumber = 0; partitionNumber < numberOfPartitionsOnMask; partitionNumber++)
             {
@@ -77,18 +77,17 @@ public class UrlReplacer
                 {
                     notFound = false;
                 }
-                debug(String.format("%2d, %2d %1s => %s %s %s %3d", i, (int) characterIndex, characterValue, binary(newMatchedIndexesBitMask[partitionNumber]),
-                        binary(newMatchedLastCharacterBitMask[partitionNumber]), binary(newFinalMask[partitionNumber]),
-                        matchedLength));
+                debug(String.format(" %s %s %s", binary(newMatchedIndexesBitMask[partitionNumber]),
+                        binary(newMatchedLastCharacterBitMask[partitionNumber]), binary(newFinalMask[partitionNumber])));
             }
-            debugln(String.format("%3d", matchedLength));
+            debugln(String.format(" %3d", matchedLength));
             if (notFound)
             {
                 characterIndexAdvance = 0;
                 exit1: for (int j = matchedLength - 1; j >= 0; j--)
                 {
                     newFinalMask = finalMaskHistory[j];
-                    for (int k = 0; k < toUrlArray.length; k++)
+                    for (int k = 0; k < fromUrlArray.length; k++)
                     {
                         int partitionNumber = k / PARTITION_LENGTH;
                         int indexMask       = 1 << (k % PARTITION_LENGTH);
@@ -148,10 +147,10 @@ public class UrlReplacer
             }
             characterIndex++;
         }
-        exit2: for (int j = matchedLength - 1; j >= 0; j--)
+        exit2: for (int j = finalMaskHistory.length - 1; j >= 0; j--)
         {
             newFinalMask = finalMaskHistory[j];
-            for (int k = 0; k < toUrlArray.length; k++)
+            for (int k = 0; k < fromUrlArray.length; k++)
             {
                 int partitionNumber = k / PARTITION_LENGTH;
                 int indexMask       = 1 << (k % PARTITION_LENGTH);
@@ -331,12 +330,12 @@ public class UrlReplacer
 
     public static void debug(Object obj)
     {
-        System.out.print(obj);
+//        System.out.print(obj);
     }
 
     public static void debugln(Object obj)
     {
-        System.out.println(obj);
+//        System.out.println(obj);
     }
 
 }

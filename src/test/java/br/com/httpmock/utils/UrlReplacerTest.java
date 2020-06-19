@@ -72,7 +72,8 @@ public class UrlReplacerTest
 
         urlReplacer.addMapping("http://a", "file://a");
         urlReplacer.addMapping("http://lo", "file://lo");
-        urlReplacer.addMapping("http://localhost.dinamico.com.br%", "file://localhost.dinamico.com.br");
+
+        urlReplacer.addMapping("http://localhost.dinamico.com.br", "file://localhost.dinamico.com.br");
         urlReplacer.addMapping("http://localhost.dinamico.com.br/xyz", "file://localhost.dinamico.com.br?xyz");
         String txt    = "?http%3A%2F%2Flo http%3A%2F%2Flocalhost.dinamico.com.br%2Fxy  http%3A%2F%2Flocalhost.dinamico.com.br";
         String result = urlReplacer.replace(txt);
