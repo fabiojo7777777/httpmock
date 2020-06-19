@@ -96,36 +96,36 @@ public class UrlReplacer
                             sb.replace(searchStartIndex, searchStartIndex + fromUrlArray[k].length(), toUrlArray[k]);
                             characterIndexAdvance = toUrlArray[k].length() - 1;
                             // APPEND A '/' AFTER THE HOST IF IT IS NOT PRESENT
-                            if (isPlainUrl[k])
+                            if (isPlainUrl[k] || isJsonEncoded[k])
                             {
-                                if (searchStartIndex + newHostLength[k] >= sb.length()
-                                        || sb.charAt(searchStartIndex + newHostLength[k]) != '/')
+                                if (searchStartIndex + newHostLength[k] < sb.length()
+                                        && sb.charAt(searchStartIndex + newHostLength[k]) != '/')
                                 {
                                     sb.insert(searchStartIndex + newHostLength[k], '/');
                                     characterIndexAdvance++;
                                 }
                             }
-                            else if (isJsonEncoded[k])
-                            {
-                                if (searchStartIndex + newHostLength[k] + 1 >= sb.length()
-                                        || sb.charAt(searchStartIndex + newHostLength[k]) != '\\'
-                                        || sb.charAt(searchStartIndex + newHostLength[k] + 1) != '/')
-                                {
-                                    sb.insert(searchStartIndex + newHostLength[k], "\\/");
-                                    characterIndexAdvance += 2;
-                                }
-                            }
-                            else if (isUrlEncoded[k])
-                            {
-                                if (searchStartIndex + newHostLength[k] + 2 >= sb.length()
-                                        || sb.charAt(searchStartIndex + newHostLength[k]) != '%'
-                                        || sb.charAt(searchStartIndex + newHostLength[k] + 1) != '2'
-                                        || sb.charAt(searchStartIndex + newHostLength[k] + 2) != 'F')
-                                {
-                                    sb.insert(searchStartIndex + newHostLength[k], "%2F");
-                                    characterIndexAdvance += 3;
-                                }
-                            }
+//                            else if (isJsonEncoded[k])
+//                            {
+//                                if (searchStartIndex + newHostLength[k] + 1 < sb.length()
+//                                        && (sb.charAt(searchStartIndex + newHostLength[k]) != '\\'
+//                                                || sb.charAt(searchStartIndex + newHostLength[k] + 1) != '/'))
+//                                {
+//                                    sb.insert(searchStartIndex + newHostLength[k], "\\/");
+//                                    characterIndexAdvance += 2;
+//                                }
+//                            }
+//                            else if (isUrlEncoded[k])
+//                            {
+//                                if (searchStartIndex + newHostLength[k] + 2 < sb.length()
+//                                        && (sb.charAt(searchStartIndex + newHostLength[k]) != '%'
+//                                                || sb.charAt(searchStartIndex + newHostLength[k] + 1) != '2'
+//                                                || sb.charAt(searchStartIndex + newHostLength[k] + 2) != 'F'))
+//                                {
+//                                    sb.insert(searchStartIndex + newHostLength[k], "%2F");
+//                                    characterIndexAdvance += 3;
+//                                }
+//                            }
                             size = sb.length();
                             debugln("bateu o histórico " + (j + 1) + " com mapeamento de índice " + k + " [" + fromUrlArray[k] + "]");
                             debugln("New search text: " + toUrlArray[k] + " " + sb);
@@ -159,36 +159,36 @@ public class UrlReplacer
                     sb.replace(searchStartIndex, searchStartIndex + fromUrlArray[k].length(), toUrlArray[k]);
                     characterIndexAdvance = toUrlArray[k].length() - 1;
                     // APPEND A '/' AFTER THE HOST IF IT IS NOT PRESENT
-                    if (isPlainUrl[k])
+                    if (isPlainUrl[k] || isJsonEncoded[k])
                     {
-                        if (searchStartIndex + newHostLength[k] >= sb.length()
-                                || sb.charAt(searchStartIndex + newHostLength[k]) != '/')
+                        if (searchStartIndex + newHostLength[k] < sb.length()
+                                && sb.charAt(searchStartIndex + newHostLength[k]) != '/')
                         {
                             sb.insert(searchStartIndex + newHostLength[k], '/');
                             characterIndexAdvance++;
                         }
                     }
-                    else if (isJsonEncoded[k])
-                    {
-                        if (searchStartIndex + newHostLength[k] + 1 >= sb.length()
-                                || sb.charAt(searchStartIndex + newHostLength[k]) != '\\'
-                                || sb.charAt(searchStartIndex + newHostLength[k] + 1) != '/')
-                        {
-                            sb.insert(searchStartIndex + newHostLength[k], "\\/");
-                            characterIndexAdvance += 2;
-                        }
-                    }
-                    else if (isUrlEncoded[k])
-                    {
-                        if (searchStartIndex + newHostLength[k] + 2 >= sb.length()
-                                || sb.charAt(searchStartIndex + newHostLength[k]) != '%'
-                                || sb.charAt(searchStartIndex + newHostLength[k] + 1) != '2'
-                                || sb.charAt(searchStartIndex + newHostLength[k] + 2) != 'F')
-                        {
-                            sb.insert(searchStartIndex + newHostLength[k], "%2F");
-                            characterIndexAdvance += 3;
-                        }
-                    }
+//                    else if (isJsonEncoded[k])
+//                    {
+//                        if (searchStartIndex + newHostLength[k] + 1 < sb.length()
+//                                && (sb.charAt(searchStartIndex + newHostLength[k]) != '\\'
+//                                        || sb.charAt(searchStartIndex + newHostLength[k] + 1) != '/'))
+//                        {
+//                            sb.insert(searchStartIndex + newHostLength[k], "\\/");
+//                            characterIndexAdvance += 2;
+//                        }
+//                    }
+//                    else if (isUrlEncoded[k])
+//                    {
+//                        if (searchStartIndex + newHostLength[k] + 2 < sb.length()
+//                                && (sb.charAt(searchStartIndex + newHostLength[k]) != '%'
+//                                        || sb.charAt(searchStartIndex + newHostLength[k] + 1) != '2'
+//                                        || sb.charAt(searchStartIndex + newHostLength[k] + 2) != 'F'))
+//                        {
+//                            sb.insert(searchStartIndex + newHostLength[k], "%2F");
+//                            characterIndexAdvance += 3;
+//                        }
+//                    }
                     size = sb.length();
                     debugln("bateu o histórico " + (j + 1) + " com mapeamento de índice " + k + " [" + fromUrlArray[k] + "]");
                     debugln("New search text: " + toUrlArray[k] + " " + sb);
