@@ -43,7 +43,6 @@ import org.apache.hc.core5.http.ProtocolException;
 import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.message.BasicHeader;
-import org.apache.hc.core5.net.URLEncodedUtils;
 import org.apache.hc.core5.ssl.PrivateKeyDetails;
 import org.apache.hc.core5.ssl.PrivateKeyStrategy;
 import org.apache.hc.core5.ssl.SSLContexts;
@@ -53,8 +52,12 @@ import br.com.httpmock.server.ProxyServer.TextTransformer;
 
 public class HttpUtils
 {
+    private static final UrlReplacer      PROXY_URL_REPLACER               = new UrlReplacer();
+    private static final UrlReplacer      REVERSE_PROXY_URL_REPLACER       = new UrlReplacer();
     private static final HttpUtils        INSTANCE                         = new HttpUtils();
+    @Deprecated // use PROXY_URL_REPLACER
     private static final List<UrlMapping> PROXY                            = new Vector<UrlMapping>();
+    @Deprecated // use REVERSE_PROXY_URL_REPLACER
     private static final List<UrlMapping> REVERSE_PROXY                    = new Vector<UrlMapping>();
     @SuppressWarnings("unused")
     private static TrustStrategy          WRITE_CLIENT_CERTS_ON_CONNECTION = new TrustStrategy()
@@ -94,11 +97,15 @@ public class HttpUtils
 
         for (String from : getUrlListWithAndWithoutDefaultPort(fromUrl))
         {
-            PROXY.add(INSTANCE.new UrlMapping(from, ommitUrlDefaultPort(toUrl)));
+            UrlMapping urlMapping = INSTANCE.new UrlMapping(from, ommitUrlDefaultPort(toUrl));
+            PROXY_URL_REPLACER.addMapping(urlMapping.fromUrl, urlMapping.toUrl);
+            PROXY.add(urlMapping);
         }
         for (String to : getUrlListWithAndWithoutDefaultPort(toUrl))
         {
-            REVERSE_PROXY.add(INSTANCE.new UrlMapping(to, ommitUrlDefaultPort(fromUrl)));
+            UrlMapping urlMapping = INSTANCE.new UrlMapping(to, ommitUrlDefaultPort(fromUrl));
+            REVERSE_PROXY_URL_REPLACER.addMapping(urlMapping.fromUrl, urlMapping.toUrl);
+            REVERSE_PROXY.add(urlMapping);
         }
 
         Collections.sort(PROXY);
@@ -161,107 +168,16 @@ public class HttpUtils
         {
             return null;
         }
-        TextReplacer replacer = INSTANCE.new TextReplacer(text);
-        for (UrlMapping urlMapping : PROXY)
-        {
-            replacer = replaceUrls(replacer, urlMapping);
-        }
-        return replacer.toString();
+        return PROXY_URL_REPLACER.replace(text);
     }
 
     public static String reverseProxyUrls(String text)
     {
-        TextReplacer replacer = INSTANCE.new TextReplacer(text);
-        for (UrlMapping urlMapping : REVERSE_PROXY)
+        if (text == null)
         {
-            replacer = replaceUrls(replacer, urlMapping);
+            return null;
         }
-        return replacer.toString();
-    }
-
-    private static TextReplacer replaceUrls(TextReplacer replacer, UrlMapping urlMapping)
-    {
-        try
-        {
-            TextReplacer newReplacer = replacer.clone();
-            if (urlMapping.getToUrl().length() > 0)
-            {
-                for (int i = 0; i < 3; i++)
-                {
-                    int          index = 0;
-                    final String fromUrl;
-                    final String toUrl;
-                    final String newHost;
-                    final int    newHostLength;
-                    if (i == 0)
-                    {
-                        fromUrl = urlMapping.getFromUrl();
-                        toUrl   = urlMapping.getToUrl();
-                        newHost = extractHost(urlMapping.getToUrl());
-                    }
-                    else if (i == 1)
-                    {
-                        // escape characters in 2nd execution (if a program try
-                        // to escape backslashes)
-                        fromUrl = urlMapping.getFromUrl().replace("/", "\\/");
-                        toUrl   = urlMapping.getToUrl().replace("/", "\\/");
-                        newHost = extractHost(urlMapping.getToUrl()).replace("/", "\\/");
-                    }
-                    else
-                    {
-                        fromUrl = URLEncodedUtils.format(
-                                URLEncodedUtils.parse(urlMapping.getFromUrl(), Constants.UTF8_CHARSET),
-                                Constants.UTF8_CHARSET);
-                        toUrl   = URLEncodedUtils.format(
-                                URLEncodedUtils.parse(urlMapping.getToUrl(), Constants.UTF8_CHARSET),
-                                Constants.UTF8_CHARSET);
-                        newHost = URLEncodedUtils.format(
-                                URLEncodedUtils.parse(extractHost(urlMapping.getToUrl()), Constants.UTF8_CHARSET),
-                                Constants.UTF8_CHARSET);
-                    }
-                    newHostLength = newHost.length();
-                    while (true)
-                    {
-                        if (index >= newReplacer.length())
-                        {
-                            break;
-                        }
-                        index = newReplacer.indexOf(fromUrl, index);
-                        if (index == -1)
-                        {
-                            break;
-                        }
-                        else
-                        {
-                            if (newReplacer.delete(index, index + fromUrl.length()))
-                            {
-                                newReplacer.insert(index, toUrl);
-                                if (index + newHostLength < newReplacer.length() && newReplacer.charAt(index + newHostLength) != '/')
-                                {
-                                    if (i != 2) // substituição de urls
-                                    {
-                                        newReplacer.insert(index + newHostLength, '/');
-                                        index++;
-                                    }
-                                }
-                                index += toUrl.length();
-                            }
-                            else
-                            {
-                                index += fromUrl.length();
-                            }
-                        }
-                    }
-                }
-            }
-            return newReplacer;
-        }
-        catch (Throwable e)
-        {
-            e.printStackTrace();
-            // ignore
-        }
-        return replacer;
+        return REVERSE_PROXY_URL_REPLACER.replace(text);
     }
 
     public static String getPath(String url)
@@ -330,132 +246,6 @@ public class HttpUtils
     public static String extractHost(URI uri)
     {
         return uri.getScheme() + "://" + uri.getRawAuthority();
-    }
-
-    public class TextReplacer
-    {
-        private StringBuffer      text;
-        private StringBuffer      replacingLocked;
-        private static final char LOCKED   = 'n';
-        private static final char UNLOCKED = 's';
-
-        public TextReplacer(String text)
-        {
-            this();
-            if (text != null)
-            {
-                this.text.append(text);
-                for (int i = 0, size = this.text.length(); i < size; i++)
-                {
-                    replacingLocked.append(UNLOCKED);
-                }
-            }
-        }
-
-        private TextReplacer()
-        {
-            text            = new StringBuffer();
-            replacingLocked = new StringBuffer();
-        }
-
-        public TextReplacer clone()
-        {
-            TextReplacer t = new TextReplacer();
-            t.text            = new StringBuffer(this.text);
-            t.replacingLocked = new StringBuffer(this.replacingLocked);
-            return t;
-        }
-
-        public String toString()
-        {
-            return text.toString();
-        }
-
-        public boolean contains(String str)
-        {
-            if (this.text.indexOf(str) >= 0)
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        public int indexOf(String str, int index)
-        {
-            return text.indexOf(str, index);
-        }
-
-        /**
-         * Returns true if delection succesfull or false otherwise (in case of delection
-         * over a snippet that was altered once before)
-         */
-        public boolean delete(int start, int end)
-        {
-            if (isReplacingLocked(start, end))
-            {
-                return false;
-            }
-            else
-            {
-                replacingLocked.delete(start, end);
-                text.delete(start, end);
-                return true;
-            }
-        }
-
-        public boolean deleteCharAt(int start)
-        {
-            if (isReplacingLocked(start, start + 1))
-            {
-                return false;
-            }
-            else
-            {
-                replacingLocked.deleteCharAt(start);
-                text.deleteCharAt(start);
-                return true;
-            }
-        }
-
-        public StringBuffer insert(int offset, char c)
-        {
-            replacingLocked.insert(offset, LOCKED);
-            return text.insert(offset, c);
-        }
-
-        public StringBuffer insert(int offset, String str)
-        {
-            for (int i = 0, size = str.length(); i < size; i++)
-            {
-                replacingLocked.insert(offset, LOCKED);
-            }
-            return text.insert(offset, str);
-        }
-
-        private boolean isReplacingLocked(int inicio, int fim)
-        {
-            for (int i = inicio; i < fim; i++)
-            {
-                if (replacingLocked.charAt(i) == LOCKED)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        public char charAt(int index)
-        {
-            return text.charAt(index);
-        }
-
-        public int length()
-        {
-            return text.length();
-        }
     }
 
     public class UrlMapping implements Comparable<UrlMapping>
