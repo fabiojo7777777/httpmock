@@ -4,37 +4,44 @@ import org.apache.hc.core5.net.URLEncodedUtils;
 
 public class UrlReplacer
 {
-    private boolean   isSearchCompiled = false;
+    private static final int PARTITION_LENGTH = 32;
+    private boolean          isSearchCompiled = false;
 
-    private String[]  fromUrlArray     = new String[0];
-    private String[]  toUrlArray       = new String[0];
-    private boolean[] isPlainUrl       = new boolean[0];
-    private boolean[] isJsonEncoded    = new boolean[0];
-    private boolean[] isUrlEncoded     = new boolean[0];
-    private int[]     newHostLength    = new int[0];
+    private String[]         fromUrlArray     = new String[0];
+    private String[]         toUrlArray       = new String[0];
+    private boolean[]        isPlainUrl       = new boolean[0];
+    private boolean[]        isJsonEncoded    = new boolean[0];
+    private boolean[]        isUrlEncoded     = new boolean[0];
+    private int[]            newHostLength    = new int[0];
 
-    private int[][]   indexesBitmask;
-    private int[]     lastCharacterBitMask;
-    private int       maxFromUrlLength;
+    private int[][][]        indexesBitmask;
+    private int[][]          lastCharacterBitMask;
+    private int              maxFromUrlLength;
+    private int              numberOfPartitionsOnMask;
 
     public String replace(String text)
     {
         compileSearch();
 
-        int           matchedIndexesBitmask          = 0xffffffff;               // all indexes matched at the beginning
-        int           matchedLastCharacterBitMask    = 0x00000000;               // all lengths not matched at the beginning
+        int[] matchedIndexesBitmask       = new int[numberOfPartitionsOnMask];
+        int[] matchedLastCharacterBitMask = new int[numberOfPartitionsOnMask];
+        for (int partitionNumber = 0; partitionNumber < numberOfPartitionsOnMask; partitionNumber++)
+        {
+            matchedIndexesBitmask[partitionNumber]       = 0xffffffff; // all indexes matched at the beginning
+            matchedLastCharacterBitMask[partitionNumber] = 0x00000000; // all lengths not matched at the beginning
+        }
         StringBuilder sb                             = new StringBuilder(text);
         int           size                           = sb.length();
 
-        int           newMatchedIndexesBitMask       = 0;
-        int           newMatchedLastCharacterBitMask = 0;
-        int           newFinalMask                   = 0;
+        int[]         newMatchedIndexesBitMask       = new int[numberOfPartitionsOnMask];
+        int[]         newMatchedLastCharacterBitMask = new int[numberOfPartitionsOnMask];
+        int[]         newFinalMask                   = new int[numberOfPartitionsOnMask];
 
         int           matchedLength                  = 0;
-        int           characterIndex                 = 0;                        // Integer.MAX_VALUE;
+        int           characterIndex                 = 0;                                                  // Integer.MAX_VALUE;
         int           i                              = 0;
-        int           searchStartIndex               = 0;                        // -1;
-        int[]         finalMaskHistory               = new int[maxFromUrlLength];
+        int           searchStartIndex               = 0;                                                  // -1;
+        int[][]       finalMaskHistory               = new int[maxFromUrlLength][numberOfPartitionsOnMask];
         int           characterIndexAdvance          = 0;
 
         // debugln("Search text: " + sb);
@@ -45,34 +52,47 @@ public class UrlReplacer
                 characterIndex   = 0;
                 i                = searchStartIndex;
                 searchStartIndex = i + 1;
-                finalMaskHistory = new int[maxFromUrlLength];
-                // debugln(String.format("IX IX CH => %32s %32s %32s %3s", "MATCHED CHARACTERS
-                // MASK", "MATCHED LAST CHARACTER", "FINAL MASK", "LEN"));
+                finalMaskHistory = new int[maxFromUrlLength][numberOfPartitionsOnMask];
+                for (int partitionNumber = 0; partitionNumber < numberOfPartitionsOnMask; partitionNumber++)
+                {
+                    matchedIndexesBitmask[partitionNumber]       = 0xffffffff; // all indexes matched at the beginning
+                    matchedLastCharacterBitMask[partitionNumber] = 0x00000000; // all lengths not matched at the beginning
+                }
+                debugln(String.format("IX IX CH => %s %s %s %3s", "MATCHED CHARACTERS MASK", "MATCHED LAST CHARACTER", "FINAL MASK", "LEN"));
                 continue;
             }
 
             matchedLength = i - searchStartIndex + 1;
 
             char characterValue = (char) (sb.charAt(i) & 0xff); // 256 ASCII CHARACTERS
-            newMatchedIndexesBitMask            = indexesBitmask[characterIndex][characterValue] & matchedIndexesBitmask;
-            newMatchedLastCharacterBitMask      = lastCharacterBitMask[matchedLength] | matchedLastCharacterBitMask;
-            newFinalMask                        = newMatchedIndexesBitMask & newMatchedLastCharacterBitMask;
-
-            finalMaskHistory[matchedLength - 1] = newFinalMask;
-            // debugln(String.format("%2d, %2d %1s => %32s %32s %32s %3d", i, (int)
-            // characterIndex, characterValue, binary(newMatchedIndexesBitMask),
-            // binary(newMatchedLastCharacterBitMask), binary(newFinalMask),
-            // matchedLength));
-            if (newMatchedIndexesBitMask == 0)
+            debug(String.format("%2d, %2d %1s => ", i, (int) characterIndex, characterValue));
+            boolean notFound = true;
+            for (int partitionNumber = 0; partitionNumber < numberOfPartitionsOnMask; partitionNumber++)
+            {
+                newMatchedIndexesBitMask[partitionNumber]            = indexesBitmask[characterIndex][characterValue][partitionNumber] & matchedIndexesBitmask[partitionNumber];
+                newMatchedLastCharacterBitMask[partitionNumber]      = lastCharacterBitMask[matchedLength][partitionNumber] | matchedLastCharacterBitMask[partitionNumber];
+                newFinalMask[partitionNumber]                        = newMatchedIndexesBitMask[partitionNumber] & newMatchedLastCharacterBitMask[partitionNumber];
+                finalMaskHistory[matchedLength - 1][partitionNumber] = newFinalMask[partitionNumber];
+                if (newMatchedIndexesBitMask[partitionNumber] != 0)
+                {
+                    notFound = false;
+                }
+                debug(String.format("%2d, %2d %1s => %s %s %s %3d", i, (int) characterIndex, characterValue, binary(newMatchedIndexesBitMask[partitionNumber]),
+                        binary(newMatchedLastCharacterBitMask[partitionNumber]), binary(newFinalMask[partitionNumber]),
+                        matchedLength));
+            }
+            debugln(String.format("%3d", matchedLength));
+            if (notFound)
             {
                 characterIndexAdvance = 0;
                 exit1: for (int j = matchedLength - 1; j >= 0; j--)
                 {
                     newFinalMask = finalMaskHistory[j];
-                    for (int k = 0; k < 32; k++)
+                    for (int k = 0; k < toUrlArray.length; k++)
                     {
-                        int indexMask = 1 << k;
-                        if ((newFinalMask & indexMask) > 0)
+                        int partitionNumber = k / PARTITION_LENGTH;
+                        int indexMask       = 1 << (k % PARTITION_LENGTH);
+                        if ((newFinalMask[partitionNumber] & indexMask) > 0)
                         {
                             sb.replace(searchStartIndex, searchStartIndex + fromUrlArray[k].length(), toUrlArray[k]);
                             characterIndexAdvance = toUrlArray[k].length() - 1;
@@ -108,9 +128,8 @@ public class UrlReplacer
                                 }
                             }
                             size = sb.length();
-                            // debugln("bateu o histórico " + (j + 1) + " com mapeamento de índice " + k + "
-                            // [" + fromUrlArray[k] + "]");
-                            // debugln("New search text: " + toUrlArray[k] + " " + sb);
+                            debugln("bateu o histórico " + (j + 1) + " com mapeamento de índice " + k + " [" + fromUrlArray[k] + "]");
+                            debugln("New search text: " + toUrlArray[k] + " " + sb);
                             break exit1;
                         }
                     }
@@ -118,9 +137,13 @@ public class UrlReplacer
                 characterIndex   = 0;
                 i                = searchStartIndex + characterIndexAdvance;
                 searchStartIndex = i + 1;
-                finalMaskHistory = new int[maxFromUrlLength];
-                // debugln(String.format("IX IX CH => %32s %32s %32s %3s", "MATCHED CHARACTERS
-                // MASK", "MATCHED LAST CHARACTER", "FINAL MASK", "LEN"));
+                finalMaskHistory = new int[maxFromUrlLength][numberOfPartitionsOnMask];
+                for (int partitionNumber = 0; partitionNumber < numberOfPartitionsOnMask; partitionNumber++)
+                {
+                    matchedIndexesBitmask[partitionNumber]       = 0xffffffff; // all indexes matched at the beginning
+                    matchedLastCharacterBitMask[partitionNumber] = 0x00000000; // all lengths not matched at the beginning
+                }
+                debugln(String.format("IX IX CH => %s %s %s %3s", "MATCHED CHARACTERS MASK", "MATCHED LAST CHARACTER", "FINAL MASK", "LEN"));
                 continue;
             }
             characterIndex++;
@@ -128,10 +151,11 @@ public class UrlReplacer
         exit2: for (int j = matchedLength - 1; j >= 0; j--)
         {
             newFinalMask = finalMaskHistory[j];
-            for (int k = 0; k < 32; k++)
+            for (int k = 0; k < toUrlArray.length; k++)
             {
-                int indexMask = 1 << k;
-                if ((newFinalMask & indexMask) > 0)
+                int partitionNumber = k / PARTITION_LENGTH;
+                int indexMask       = 1 << (k % PARTITION_LENGTH);
+                if ((newFinalMask[partitionNumber] & indexMask) > 0)
                 {
                     sb.replace(searchStartIndex, searchStartIndex + fromUrlArray[k].length(), toUrlArray[k]);
                     characterIndexAdvance = toUrlArray[k].length() - 1;
@@ -167,9 +191,8 @@ public class UrlReplacer
                         }
                     }
                     size = sb.length();
-                    // debugln("bateu o histórico " + (j + 1) + " com mapeamento de índice " + k + "
-                    // [" + fromUrlArray[k] + "]");
-                    // debugln("New search text: " + toUrlArray[k] + " " + sb);
+                    debugln("bateu o histórico " + (j + 1) + " com mapeamento de índice " + k + " [" + fromUrlArray[k] + "]");
+                    debugln("New search text: " + toUrlArray[k] + " " + sb);
                     break exit2;
                 }
             }
@@ -177,36 +200,32 @@ public class UrlReplacer
         return sb.toString();
     }
 
-//    private String binary(int bitmask)
-//    {
-//        String txt = "0000000000000000000000000000000000000000000000000000000000000000" + Integer.toBinaryString(bitmask);
-//        return txt.substring(txt.length() - 32, txt.length());
-//    }
+    private String binary(int bitmask)
+    {
+        String txt = "0000000000000000000000000000000000000000000000000000000000000000" + Integer.toBinaryString(bitmask);
+        return txt.substring(txt.length() - PARTITION_LENGTH, txt.length());
+    }
 
     private synchronized void compileSearch()
     {
         if (!isSearchCompiled)
         {
-            maxFromUrlLength = getMaxFromUrlLength();
+            maxFromUrlLength         = getMaxFromUrlLength();
+            numberOfPartitionsOnMask = getNumberOfPartitionsOnMask();
 
-            indexesBitmask   = new int[maxFromUrlLength][256]; // 256 ASCII CHARACTERS
+            indexesBitmask           = new int[maxFromUrlLength][256][numberOfPartitionsOnMask]; // 256 ASCII CHARACTERS
+            lastCharacterBitMask     = new int[maxFromUrlLength + 1][numberOfPartitionsOnMask];
             for (int fromIndex = 0, size1 = fromUrlArray.length; fromIndex < size1; fromIndex++)
             {
-                String fromUrl = fromUrlArray[fromIndex];
-                int    mask    = (1 << fromIndex);
+                String fromUrl         = fromUrlArray[fromIndex];
+                int    partitionNumber = fromIndex / PARTITION_LENGTH;
+                int    mask            = 1 << (fromIndex % PARTITION_LENGTH);
                 for (int characterIndex = 0, size2 = fromUrl.length(); characterIndex < size2; characterIndex++)
                 {
                     char characterValue = (char) (fromUrl.charAt(characterIndex) & 0xff);// 256 ASCII CHARACTERS
-                    indexesBitmask[characterIndex][characterValue] |= mask;
+                    indexesBitmask[characterIndex][characterValue][partitionNumber] |= mask;
                 }
-            }
-
-            lastCharacterBitMask = new int[maxFromUrlLength + 1];
-            for (int fromIndex = 0, size1 = fromUrlArray.length; fromIndex < size1; fromIndex++)
-            {
-                String fromUrl = fromUrlArray[fromIndex];
-                int    mask    = (1 << fromIndex);
-                lastCharacterBitMask[fromUrl.length()] |= mask;
+                lastCharacterBitMask[fromUrl.length()][partitionNumber] |= mask;
             }
 
             isSearchCompiled = true;
@@ -224,6 +243,16 @@ public class UrlReplacer
             }
         }
         return maxFromUrlLength;
+    }
+
+    private int getNumberOfPartitionsOnMask()
+    {
+        int numberOfPartitionsOnMask = fromUrlArray.length / PARTITION_LENGTH;
+        if (fromUrlArray.length % PARTITION_LENGTH != 0)
+        {
+            numberOfPartitionsOnMask++;
+        }
+        return numberOfPartitionsOnMask;
     }
 
     public synchronized void addMapping(String fromUrl, String toUrl)
@@ -300,9 +329,14 @@ public class UrlReplacer
         return newArray;
     }
 
-//    public static void debugln(Object obj)
-//    {
-//        System.out.println(obj);
-//    }
+    public static void debug(Object obj)
+    {
+        System.out.print(obj);
+    }
+
+    public static void debugln(Object obj)
+    {
+        System.out.println(obj);
+    }
 
 }
