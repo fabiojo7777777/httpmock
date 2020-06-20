@@ -357,4 +357,26 @@ public class UrlReplacerTest
         Assert.assertEquals("http%3A%2F%2Flocalhost.dinamico.com.br%2Fte.html", result);
     }
 
+    @Test(expected = RuntimeException.class)
+    public void invalidFromUrl()
+    {
+        UrlReplacer urlReplacer = new UrlReplacer();
+        urlReplacer.addMapping("h", "http://localhost.dinamico.com.br");
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void invalidToUrl()
+    {
+        UrlReplacer urlReplacer = new UrlReplacer();
+        urlReplacer.addMapping("http://localhost.dinamico.com.br", "h");
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void addingMappingAfterFirstReplaceCall()
+    {
+        UrlReplacer urlReplacer = new UrlReplacer();
+        urlReplacer.addMapping("http://localhost.dinamico.com.br/tes/", "http://localhost.dinamico.com.br");
+        urlReplacer.replace("http%3A%2F%2Flocalhost.dinamico.com.br%2Ftes%2Fte.html");
+        urlReplacer.addMapping("http://localhost.dinamico.com.br/tes/", "http://localhost.dinamico.com.br");
+    }
 }
