@@ -47,7 +47,7 @@
 
 	<groupId>br.com.httpmock</groupId>
 	<artifactId>httpmock</artifactId>
-	<version>0.0.2</version>
+	<version>0.0.3</version>
 	<name>httpmock</name>
 	<description>An visual tool for mocking and proxying http requests</description>
 

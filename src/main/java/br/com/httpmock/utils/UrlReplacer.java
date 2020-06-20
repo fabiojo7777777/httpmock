@@ -1,18 +1,22 @@
 package br.com.httpmock.utils;
 
+import java.net.URI;
+
 import org.apache.hc.core5.net.URLEncodedUtils;
 
 public class UrlReplacer
 {
-    private static final int PARTITION_LENGTH = 32;
-    private boolean          isSearchCompiled = false;
+    private static final int PARTITION_LENGTH          = 32;
+    private boolean          isSearchCompiled          = false;
 
-    private String[]         fromUrlArray     = new String[0];
-    private String[]         toUrlArray       = new String[0];
-    private boolean[]        isPlainUrl       = new boolean[0];
-    private boolean[]        isJsonEncoded    = new boolean[0];
-    private boolean[]        isUrlEncoded     = new boolean[0];
-    private int[]            newHostLength    = new int[0];
+    private String[]         fromUrlArray              = new String[0];
+    private String[]         toUrlArray                = new String[0];
+    private boolean[]        isPlainUrl                = new boolean[0];
+    private boolean[]        isJsonEncoded             = new boolean[0];
+    private boolean[]        isUrlEncoded              = new boolean[0];
+    private int[]            newHostLength             = new int[0];
+    private boolean[]        fromUrlOnlyHostEspecified = new boolean[0];
+    private boolean[]        fromUrlPortEspecified     = new boolean[0];
 
     private int[][][]        indexesBitmask;
     private int[][]          lastCharacterBitMask;
@@ -23,80 +27,102 @@ public class UrlReplacer
     {
         compileSearch();
 
-        int[] matchedIndexesBitmask       = new int[numberOfPartitionsOnMask];
-        int[] matchedLastCharacterBitMask = new int[numberOfPartitionsOnMask];
+        int[] matchedIndexesBitmask = new int[numberOfPartitionsOnMask];
         for (int partitionNumber = 0; partitionNumber < numberOfPartitionsOnMask; partitionNumber++)
         {
-            matchedIndexesBitmask[partitionNumber]       = 0xffffffff; // all indexes matched at the beginning
-            matchedLastCharacterBitMask[partitionNumber] = 0x00000000; // all lengths not matched at the beginning
+            matchedIndexesBitmask[partitionNumber] = 0xffffffff; // all indexes matched at the beginning
         }
-        StringBuilder sb                             = new StringBuilder(text);
-        int           size                           = sb.length();
+        StringBuilder sb                    = new StringBuilder(text);
+        int           size                  = sb.length();
 
-        int[]         newMatchedIndexesBitMask       = new int[numberOfPartitionsOnMask];
-        int[]         newMatchedLastCharacterBitMask = new int[numberOfPartitionsOnMask];
-        int[]         newFinalMask                   = new int[numberOfPartitionsOnMask];
-
-        int           matchedLength                  = 0;
-        int           characterIndex                 = 0;                                                  // Integer.MAX_VALUE;
-        int           i                              = 0;
-        int           searchStartIndex               = 0;                                                  // -1;
-        int[][]       finalMaskHistory               = new int[maxFromUrlLength][numberOfPartitionsOnMask];
-        int           characterIndexAdvance          = 0;
+        int           matchedLength         = 0;
+        int           characterIndex        = 0;                                                  // Integer.MAX_VALUE;
+        int           i                     = 0;
+        int           searchStartIndex      = 0;                                                  // -1;
+        int[][]       finalMaskHistory      = new int[maxFromUrlLength][numberOfPartitionsOnMask];
+        int           characterIndexAdvance = 0;
 
         // debugln("Search text: " + sb);
         for (i = 0; i < size; i++)
         {
-            if (characterIndex >= indexesBitmask.length)
+            boolean notFound = true;
+            if (characterIndex < indexesBitmask.length)
             {
-                characterIndex   = 0;
-                i                = searchStartIndex;
-                searchStartIndex = i + 1;
-                finalMaskHistory = new int[maxFromUrlLength][numberOfPartitionsOnMask];
+                matchedLength = i - searchStartIndex + 1;
+                char characterValue = (char) (sb.charAt(i) & 0xff); // 256 ASCII CHARACTERS
+                debug(String.format("%3d, %3d %1s =>", i, (int) characterIndex, characterValue));
+                notFound = true;
                 for (int partitionNumber = 0; partitionNumber < numberOfPartitionsOnMask; partitionNumber++)
                 {
-                    matchedIndexesBitmask[partitionNumber]       = 0xffffffff; // all indexes matched at the beginning
-                    matchedLastCharacterBitMask[partitionNumber] = 0x00000000; // all lengths not matched at the beginning
+                    matchedIndexesBitmask[partitionNumber]               = indexesBitmask[characterIndex][characterValue][partitionNumber] & matchedIndexesBitmask[partitionNumber];
+                    finalMaskHistory[matchedLength - 1][partitionNumber] = matchedIndexesBitmask[partitionNumber] & lastCharacterBitMask[matchedLength][partitionNumber];
+                    if (matchedIndexesBitmask[partitionNumber] != 0)
+                    {
+                        notFound = false;
+                    }
+                    debug(String.format(" %s %s %s", binary(matchedIndexesBitmask[partitionNumber]),
+                            binary(lastCharacterBitMask[matchedLength][partitionNumber]), binary(finalMaskHistory[matchedLength - 1][partitionNumber])));
                 }
-                debugln(String.format("IX IX CH => %s %s %s %3s", "MATCHED CHARACTERS MASK", "MATCHED LAST CHARACTER", "FINAL MASK", "LEN"));
-                continue;
+                debugln(String.format(" %3d", matchedLength));
             }
-
-            matchedLength = i - searchStartIndex + 1;
-
-            char characterValue = (char) (sb.charAt(i) & 0xff); // 256 ASCII CHARACTERS
-            debug(String.format("%3d, %3d %1s =>", i, (int) characterIndex, characterValue));
-            boolean notFound = true;
-            for (int partitionNumber = 0; partitionNumber < numberOfPartitionsOnMask; partitionNumber++)
+            else
             {
-                newMatchedIndexesBitMask[partitionNumber]            = indexesBitmask[characterIndex][characterValue][partitionNumber] & matchedIndexesBitmask[partitionNumber];
-                newMatchedLastCharacterBitMask[partitionNumber]      = lastCharacterBitMask[matchedLength][partitionNumber] | matchedLastCharacterBitMask[partitionNumber];
-                newFinalMask[partitionNumber]                        = newMatchedIndexesBitMask[partitionNumber] & newMatchedLastCharacterBitMask[partitionNumber];
-                finalMaskHistory[matchedLength - 1][partitionNumber] = newFinalMask[partitionNumber];
-                if (newMatchedIndexesBitMask[partitionNumber] != 0)
-                {
-                    notFound = false;
-                }
-                debug(String.format(" %s %s %s", binary(newMatchedIndexesBitMask[partitionNumber]),
-                        binary(newMatchedLastCharacterBitMask[partitionNumber]), binary(newFinalMask[partitionNumber])));
+                notFound = true;
             }
-            debugln(String.format(" %3d", matchedLength));
             if (notFound)
             {
                 characterIndexAdvance = 0;
                 exit1: for (int j = matchedLength - 1; j >= 0; j--)
                 {
-                    newFinalMask = finalMaskHistory[j];
+                    int[] finalMask = finalMaskHistory[j];
                     for (int k = 0; k < fromUrlArray.length; k++)
                     {
                         int partitionNumber = k / PARTITION_LENGTH;
                         int indexMask       = 1 << (k % PARTITION_LENGTH);
-                        if ((newFinalMask[partitionNumber] & indexMask) > 0)
+                        if ((finalMask[partitionNumber] & indexMask) > 0)
                         {
-                            sb.replace(searchStartIndex, searchStartIndex + fromUrlArray[k].length(), toUrlArray[k]);
+                            int searchFinalIndex = searchStartIndex + fromUrlArray[k].length();
+                            if (fromUrlOnlyHostEspecified[k])
+                            {
+                                if (fromUrlPortEspecified[k])
+                                {
+                                    if (searchFinalIndex < sb.length()
+                                            && sb.charAt(searchFinalIndex) >= '0'
+                                            && sb.charAt(searchFinalIndex) <= '9')
+                                    {
+                                        continue;
+                                    }
+                                }
+                                else
+                                {
+                                    if (searchFinalIndex < sb.length()
+                                            && sb.charAt(searchFinalIndex) == ':')
+                                    {
+                                        continue;
+                                    }
+                                    if (searchFinalIndex + 2 < sb.length())
+                                    {
+                                        if (sb.charAt(searchFinalIndex) == '%'
+                                                && sb.charAt(searchFinalIndex + 1) == '3'
+                                                && sb.charAt(searchFinalIndex + 2) == 'A')
+                                        {
+                                            continue;
+                                        }
+                                    }
+                                }
+                            }
+                            debug(fromUrlArray[k] + " ");
+                            debug(fromUrlOnlyHostEspecified[k] + " ");
+                            debug(fromUrlPortEspecified[k] + " ");
+                            if (searchFinalIndex < sb.length())
+                            {
+                                debug(sb.charAt(searchFinalIndex));
+                            }
+                            debugln("");
+                            sb.replace(searchStartIndex, searchFinalIndex, toUrlArray[k]);
                             characterIndexAdvance = toUrlArray[k].length() - 1;
                             // APPEND A '/' AFTER THE HOST IF IT IS NOT PRESENT
-                            if (isPlainUrl[k] || isJsonEncoded[k])
+                            if (isPlainUrl[k])
                             {
                                 if (searchStartIndex + newHostLength[k] < sb.length()
                                         && sb.charAt(searchStartIndex + newHostLength[k]) != '/')
@@ -105,27 +131,25 @@ public class UrlReplacer
                                     characterIndexAdvance++;
                                 }
                             }
-//                            else if (isJsonEncoded[k])
-//                            {
-//                                if (searchStartIndex + newHostLength[k] + 1 < sb.length()
-//                                        && (sb.charAt(searchStartIndex + newHostLength[k]) != '\\'
-//                                                || sb.charAt(searchStartIndex + newHostLength[k] + 1) != '/'))
-//                                {
-//                                    sb.insert(searchStartIndex + newHostLength[k], "\\/");
-//                                    characterIndexAdvance += 2;
-//                                }
-//                            }
-//                            else if (isUrlEncoded[k])
-//                            {
-//                                if (searchStartIndex + newHostLength[k] + 2 < sb.length()
-//                                        && (sb.charAt(searchStartIndex + newHostLength[k]) != '%'
-//                                                || sb.charAt(searchStartIndex + newHostLength[k] + 1) != '2'
-//                                                || sb.charAt(searchStartIndex + newHostLength[k] + 2) != 'F'))
-//                                {
-//                                    sb.insert(searchStartIndex + newHostLength[k], "%2F");
-//                                    characterIndexAdvance += 3;
-//                                }
-//                            }
+                            else if (isJsonEncoded[k])
+                            {
+                                if (searchStartIndex + newHostLength[k] < sb.length()
+                                        && sb.charAt(searchStartIndex + newHostLength[k]) != '\\'
+                                        && sb.charAt(searchStartIndex + newHostLength[k]) != '?')
+                                {
+                                    sb.insert(searchStartIndex + newHostLength[k], "\\/");
+                                    characterIndexAdvance += 2;
+                                }
+                            }
+                            else if (isUrlEncoded[k])
+                            {
+                                if (searchStartIndex + newHostLength[k] < sb.length()
+                                        && sb.charAt(searchStartIndex + newHostLength[k]) != '%')
+                                {
+                                    sb.insert(searchStartIndex + newHostLength[k], "%2F");
+                                    characterIndexAdvance += 3;
+                                }
+                            }
                             size = sb.length();
                             debugln("bateu o histórico " + (j + 1) + " com mapeamento de índice " + k + " [" + fromUrlArray[k] + "]");
                             debugln("New search text: " + toUrlArray[k] + " " + sb);
@@ -139,27 +163,64 @@ public class UrlReplacer
                 finalMaskHistory = new int[maxFromUrlLength][numberOfPartitionsOnMask];
                 for (int partitionNumber = 0; partitionNumber < numberOfPartitionsOnMask; partitionNumber++)
                 {
-                    matchedIndexesBitmask[partitionNumber]       = 0xffffffff; // all indexes matched at the beginning
-                    matchedLastCharacterBitMask[partitionNumber] = 0x00000000; // all lengths not matched at the beginning
+                    matchedIndexesBitmask[partitionNumber] = 0xffffffff; // all indexes matched at the beginning
                 }
                 debugln(String.format("IX IX CH => %s %s %s %3s", "MATCHED CHARACTERS MASK", "MATCHED LAST CHARACTER", "FINAL MASK", "LEN"));
                 continue;
             }
             characterIndex++;
         }
-        exit2: for (int j = finalMaskHistory.length - 1; j >= 0; j--)
+        exit2: for (int j = matchedLength - 1; j >= 0; j--)
         {
-            newFinalMask = finalMaskHistory[j];
+            int[] finalMask = finalMaskHistory[j];
             for (int k = 0; k < fromUrlArray.length; k++)
             {
                 int partitionNumber = k / PARTITION_LENGTH;
                 int indexMask       = 1 << (k % PARTITION_LENGTH);
-                if ((newFinalMask[partitionNumber] & indexMask) > 0)
+                if ((finalMask[partitionNumber] & indexMask) > 0)
                 {
-                    sb.replace(searchStartIndex, searchStartIndex + fromUrlArray[k].length(), toUrlArray[k]);
+                    int searchFinalIndex = searchStartIndex + fromUrlArray[k].length();
+                    if (fromUrlOnlyHostEspecified[k])
+                    {
+                        if (fromUrlPortEspecified[k])
+                        {
+                            if (searchFinalIndex < sb.length()
+                                    && sb.charAt(searchFinalIndex) >= '0'
+                                    && sb.charAt(searchFinalIndex) <= '9')
+                            {
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            if (searchFinalIndex < sb.length()
+                                    && sb.charAt(searchFinalIndex) == ':')
+                            {
+                                continue;
+                            }
+                            if (searchFinalIndex + 2 < sb.length())
+                            {
+                                if (sb.charAt(searchFinalIndex) == '%'
+                                        && sb.charAt(searchFinalIndex + 1) == '3'
+                                        && sb.charAt(searchFinalIndex + 2) == 'A')
+                                {
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                    debug(fromUrlArray[k] + " ");
+                    debug(fromUrlOnlyHostEspecified[k] + " ");
+                    debug(fromUrlPortEspecified[k] + " ");
+                    if (searchFinalIndex < sb.length())
+                    {
+                        debug(sb.charAt(searchFinalIndex));
+                    }
+                    debugln("");
+                    sb.replace(searchStartIndex, searchFinalIndex, toUrlArray[k]);
                     characterIndexAdvance = toUrlArray[k].length() - 1;
                     // APPEND A '/' AFTER THE HOST IF IT IS NOT PRESENT
-                    if (isPlainUrl[k] || isJsonEncoded[k])
+                    if (isPlainUrl[k])
                     {
                         if (searchStartIndex + newHostLength[k] < sb.length()
                                 && sb.charAt(searchStartIndex + newHostLength[k]) != '/')
@@ -168,27 +229,25 @@ public class UrlReplacer
                             characterIndexAdvance++;
                         }
                     }
-//                    else if (isJsonEncoded[k])
-//                    {
-//                        if (searchStartIndex + newHostLength[k] + 1 < sb.length()
-//                                && (sb.charAt(searchStartIndex + newHostLength[k]) != '\\'
-//                                        || sb.charAt(searchStartIndex + newHostLength[k] + 1) != '/'))
-//                        {
-//                            sb.insert(searchStartIndex + newHostLength[k], "\\/");
-//                            characterIndexAdvance += 2;
-//                        }
-//                    }
-//                    else if (isUrlEncoded[k])
-//                    {
-//                        if (searchStartIndex + newHostLength[k] + 2 < sb.length()
-//                                && (sb.charAt(searchStartIndex + newHostLength[k]) != '%'
-//                                        || sb.charAt(searchStartIndex + newHostLength[k] + 1) != '2'
-//                                        || sb.charAt(searchStartIndex + newHostLength[k] + 2) != 'F'))
-//                        {
-//                            sb.insert(searchStartIndex + newHostLength[k], "%2F");
-//                            characterIndexAdvance += 3;
-//                        }
-//                    }
+                    else if (isJsonEncoded[k])
+                    {
+                        if (searchStartIndex + newHostLength[k] < sb.length()
+                                && sb.charAt(searchStartIndex + newHostLength[k]) != '\\'
+                                && sb.charAt(searchStartIndex + newHostLength[k]) != '?')
+                        {
+                            sb.insert(searchStartIndex + newHostLength[k], "\\/");
+                            characterIndexAdvance += 2;
+                        }
+                    }
+                    else if (isUrlEncoded[k])
+                    {
+                        if (searchStartIndex + newHostLength[k] < sb.length()
+                                && sb.charAt(searchStartIndex + newHostLength[k]) != '%')
+                        {
+                            sb.insert(searchStartIndex + newHostLength[k], "%2F");
+                            characterIndexAdvance += 3;
+                        }
+                    }
                     size = sb.length();
                     debugln("bateu o histórico " + (j + 1) + " com mapeamento de índice " + k + " [" + fromUrlArray[k] + "]");
                     debugln("New search text: " + toUrlArray[k] + " " + sb);
@@ -258,6 +317,26 @@ public class UrlReplacer
     {
         if (!isSearchCompiled)
         {
+            URI fromUri = null;
+            try
+            {
+                // validates the fromUrl
+                fromUri = new URI(fromUrl);
+            }
+            catch (Throwable e)
+            {
+                throw new RuntimeException("a url '" + fromUrl + "' para mapeamento é inválida");
+            }
+            try
+            {
+                // validates the toUrl
+                new URI(toUrl);
+            }
+            catch (Throwable e)
+            {
+                throw new RuntimeException("a url '" + toUrl + "' para mapeamento é inválida");
+            }
+
             String fromUrlJsonEncoded = fromUrl.replace("/", "\\/");
             String fromUrlUrlEncoded  = URLEncodedUtils.format(
                     URLEncodedUtils.parse(fromUrl, Constants.UTF8_CHARSET),
@@ -300,6 +379,23 @@ public class UrlReplacer
             newHostLength[newHostLength.length - 1] = newHostJsonEncodedLength;
             newHostLength[newHostLength.length - 2] = newHostUrlEncodedLenght;
             newHostLength[newHostLength.length - 3] = newHostUrlLength;
+
+            fromUrlOnlyHostEspecified               = addElements(fromUrlOnlyHostEspecified, 3);
+            String fromUrlPath = fromUri.getPath();
+            if ("/".equals(fromUrlPath) || "".equals(fromUrlPath))
+            {
+                fromUrlOnlyHostEspecified[fromUrlOnlyHostEspecified.length - 1] = true;
+                fromUrlOnlyHostEspecified[fromUrlOnlyHostEspecified.length - 2] = true;
+                fromUrlOnlyHostEspecified[fromUrlOnlyHostEspecified.length - 3] = true;
+            }
+
+            fromUrlPortEspecified = addElements(fromUrlPortEspecified, 3);
+            if (fromUri.getRawAuthority().contains(":"))
+            {
+                fromUrlPortEspecified[fromUrlPortEspecified.length - 1] = true;
+                fromUrlPortEspecified[fromUrlPortEspecified.length - 2] = true;
+                fromUrlPortEspecified[fromUrlPortEspecified.length - 3] = true;
+            }
         }
         else
         {
