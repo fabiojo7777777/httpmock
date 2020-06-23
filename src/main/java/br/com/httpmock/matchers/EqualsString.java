@@ -35,6 +35,18 @@ public class EqualsString
         }
     }
 
+    public static int hit(String text1, String text2)
+    {
+        if (equals(text1, text2))
+        {
+            return IMatcher.MAX_HIT_VALUE;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+
     public static boolean equals(String text1, String text2)
     {
         if (text1 == null && text2 == null)

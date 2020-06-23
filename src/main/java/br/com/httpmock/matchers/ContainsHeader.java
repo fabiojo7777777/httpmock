@@ -13,7 +13,7 @@ public class ContainsHeader
     public ContainsHeader(String name, String pattern)
     {
         this.name    = name;
-        this.pattern = new EqualsLevenshteinDistance(pattern);
+        this.pattern = new EqualsString(pattern);
     }
 
     public ContainsHeader(String key, IMatcher<String> pattern)
@@ -25,13 +25,13 @@ public class ContainsHeader
     public ContainsHeader(NameValuePair pattern)
     {
         this.name    = pattern.getName();
-        this.pattern = new EqualsLevenshteinDistance(pattern.getValue());
+        this.pattern = new EqualsString(pattern.getValue());
     }
 
     public ContainsHeader withPattern(NameValuePair pattern)
     {
         this.name    = pattern.getName();
-        this.pattern = new EqualsLevenshteinDistance(pattern.getValue());
+        this.pattern = new EqualsString(pattern.getValue());
         return this;
     }
 

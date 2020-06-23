@@ -53,7 +53,7 @@ public class EqualsJsonProperty
             int         hitSum      = 0;
             int         maxHitSum   = 0;
 
-            int         keyDistance = EqualsLevenshteinDistance.hit(key1, key2);
+            int         keyDistance = EqualsString.hit(key1, key2);
 
             JsonElement value1      = EqualsJsonElement.getValue(pattern);
             JsonElement value2      = EqualsJsonElement.getValue(jsonProperty);
@@ -62,8 +62,6 @@ public class EqualsJsonProperty
                     .withIgnoreArrayOrder(ignoreArrayOrder)
                     .withIgnoreExtraProperties(ignoreExtraProperties)
                     .hit(value2);
-            // int valueDistance = EqualsLevenshteinDistance.hit(value1,
-            // value2);
 
             hitSum    = hitSum
                     + (keyDistance * keyHitWeight)
