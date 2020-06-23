@@ -46,9 +46,9 @@ Import the project in Eclipse IDE
 
 | *KEYWORD* | *DESCRIPTION* | *EXAMPLE* | *ONLINE MODE* | *OFFLINE MODE* |
 |:---:|:---:|:---:|:---:|:---:|
-| VirtualServer | Name of the virtual server that will be mapped on the local machine to serve http/https requests | https://localhost.com.br:443 | X *(required)* | X *(required)* |
-| ProxyPassAndReverse | Origin path and target serverName (with path) mapping in order to proxy and proxy reverse urls. When this keyword has any value automatically the tool changes to ONLINE MODE | /abc https://localhost.com.br:443/abc/def | X*(required)* |   |
-| RecordingDirectory | Relative or absolute path of directory to use to write the network traffic file stubs when in ONLINE MODE or to read network traffic file stubs when in OFFLINE MODE | /servidor/http_www.google.com.br | X | X*(required)* |
+| VirtualServer | Name of the virtual server that will be mapped on the local machine to serve http/https requests | https://localhost.com.br:443 | X #(required)# | X #(required)# |
+| ProxyPassAndReverse | Origin path and target serverName (with path) mapping in order to proxy and proxy reverse urls. When this keyword has any value automatically the tool changes to ONLINE MODE | /abc https://localhost.com.br:443/abc/def | X #(required)# |   |
+| RecordingDirectory | Relative or absolute path of directory to use to write the network traffic file stubs when in ONLINE MODE or to read network traffic file stubs when in OFFLINE MODE | /servidor/http_www.google.com.br | X | X #(required)# |
 | PreserveHostHeader | Preserves host header when proxying the http request to the target server | /servidor/http_www.google.com.br | X |   |
 | HttpsKeystore | Relative or absolute filename path where to find ssl private key for https server protocol | /servidor/private_cert.pkcs12 | X | X |
 | KeystorePassword | Password for keystore file | private_cert_secret | X | X |
