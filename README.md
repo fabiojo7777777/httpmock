@@ -42,6 +42,24 @@ Import the project in Eclipse IDE
 12. Access http://localhost.dinamico.com to view the google page proxied in OFFLINE mode (without accessing the network)
 13. Stop tool clicking on "X"
 
+# Features availables on config file
+
+| *KEYWORD* | *DESCRIPTION* | *EXAMPLE* | *ONLINE MODE* | *OFFLINE MODE* |
+|:---:|:---:|:---:|:---:|:---:|
+| VirtualServer | Name of the virtual server that will be mapped on the local machine to serve http/https requests | https://localhost.com.br:443 | X | X |
+| ProxyPassAndReverse | Origin path and target serverName (with path) mapping in order to proxy and proxy reverse urls. When this keyword has any value automatically the tool changes to ONLINE MODE | /abc https://localhost.com.br:443/abc/def | X |   |
+| RecordingDirectory | Relative or absolute path of directory to use to write the network traffic file stubs when in ONLINE MODE or to read network traffic file stubs when in OFFLINE MODE | /servidor/http_www.google.com.br | X | X |
+| PreserveHostHeader | Preserves host header when proxying the http request to the target server | /servidor/http_www.google.com.br | X |   |
+| HttpsKeystore | Relative or absolute filename path where to find ssl private key for https server protocol | /servidor/private_cert.pkcs12 | X | X |
+| KeystorePassword | Password for keystore file | private_cert_secret | X | X |
+| HttpsTruststore | Relative or absolute filename path where to find ssl public keys to trust client connections when serving https connections | /servidor/clients_certs.pkcs12 | X |   |
+| TruststorePassword | Password for truststore file | clients_certs_secret | X |   |
+| HttpsRequireClientCert | Indicates if the tool will require client ssl connection cert to serve https requests |   | X |   |
+| OfflineMatchHeaders | Comma separated list of header names to match when in OFFLINE MODE (default: ignore header match) | Host,Content-Type |   | X |
+| OfflineIgnoreParameters | Comma separated list of names to ignore match when in query parameters, body parameters and json property keys, or the keyword ALL to ignore this matching filter (default: ALL, match all query parameters, body parameteres and json property keys) | ALL or parameter1,parameter2,parameter3 |   | X |
+| OfflineCyclicResponses | When enabled, a request that have one or more response stubs associateds are served cyclic |   |   | X |
+| OfflineIgnoreHttpStatus | Comma separated list of http statuses in recorded stubs not to serve http requests | 300,301,302,304,400,500 |   | X |
+
 # Contributing
 We welcome bug fixes and new features in the form of pull requests.
 If you'd like to contribute, you are welcome too.
