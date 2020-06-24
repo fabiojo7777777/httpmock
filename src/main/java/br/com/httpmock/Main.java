@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.swing.JOptionPane;
 
@@ -139,19 +140,20 @@ public class Main
 
     public static class LocalServer
     {
-        private boolean       online = true;
-        private String        hostname;
-        private String        keystore;
-        private String        keystorePassword;
-        private String        truststore;
-        private String        truststorePassword;
-        private boolean       clientAuth;
-        private boolean       preserveHostHeader;
-        private String        recordingDirectory;
-        private List<String>  offlineMatchHeaders;
-        private List<String>  offlineIgnoreParameters;
-        private boolean       offlineCyclicResponses;
-        private List<Integer> offlineIgnoreHttpStatus;
+        private boolean             online      = true;
+        private String              hostname;
+        private String              keystore;
+        private String              keystorePassword;
+        private String              truststore;
+        private String              truststorePassword;
+        private boolean             clientAuth;
+        private boolean             preserveHostHeader;
+        private String              recordingDirectory;
+        private List<String>        offlineMatchHeaders;
+        private List<String>        offlineIgnoreParameters;
+        private boolean             offlineCyclicResponses;
+        private List<Integer>       offlineIgnoreHttpStatus;
+        private Map<String, String> urlMappings = new ConcurrentHashMap<String, String>();
 
         public LocalServer(boolean online,
                 String hostname,
@@ -246,6 +248,16 @@ public class Main
         public List<Integer> getOfflineIgnoreHttpStatus()
         {
             return offlineIgnoreHttpStatus;
+        }
+
+        public void addUrlMapping(String fromUrl, String toUrl)
+        {
+            this.urlMappings.put(fromUrl, toUrl);
+        }
+
+        public Map<String, String> getUrlMappings()
+        {
+            return new ConcurrentHashMap<String, String>(urlMappings);
         }
 
     }
@@ -660,7 +672,7 @@ public class Main
                 }
             }
         }
-        localServerList.add(new LocalServer(
+        LocalServer localServer = new LocalServer(
                 online,
                 serverAddress,
                 keystore,
@@ -673,11 +685,17 @@ public class Main
                 matchHeaders,
                 offlineIgnoreParameters,
                 offlineCyclicResponses,
-                offlineIgnoreHttpStatus));
+                offlineIgnoreHttpStatus);
+        localServerList.add(localServer);
         for (int i = 0, size = Math.min(path.size(), toUrl.size()); i < size; i++)
         {
             String fromUrl = serverAddress + path.get(i);
             HttpUtils.addProxyMapping(fromUrl, toUrl.get(i));
+            localServer.addUrlMapping(fromUrl, toUrl.get(i));
+        }
+        if (path.size() == 0 || toUrl.size() == 0)
+        {
+            localServer.addUrlMapping(serverAddress, "");
         }
     }
 

@@ -9,6 +9,7 @@ import java.awt.Toolkit;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map.Entry;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -78,6 +79,7 @@ public class NetworkView
     private JButton                    clearButton;
     private JButton                    infoButton;
     private TableRowSorter<TableModel> sorter;
+    private TableRowSorter<TableModel> infoTableSorter;
     private int                        sequence                   = 0;
     private List<Integer>              ports                      = new ArrayList<Integer>();
     private JPanel                     clearPanel;
@@ -167,7 +169,67 @@ public class NetworkView
                                            }
 
                                        };
-        this.infoTable                 = new JTable(this.infoDtm);
+        this.infoTableSorter           = new TableRowSorter<TableModel>(this.infoDtm);
+        this.infoTable                 = new JTable(this.infoDtm)
+                                       {
+                                           private static final long serialVersionUID = 1L;
+
+                                           public Component prepareRenderer(TableCellRenderer renderer, int row, int colIndex)
+                                           {
+                                               JComponent cell   = (JComponent) super.prepareRenderer(renderer, row, colIndex);
+                                               boolean    online = (" " + Constants.ONLINE).equals(getValueAt(row, MODE_COLUMN));
+                                               if (isCellSelected(row, colIndex))
+                                               {
+                                                   if (online)
+                                                   {
+                                                       cell.setBackground(new Color(26, 115, 232));
+                                                       // cell.setBackground(new Color(245, 245, 255));
+                                                       cell.setForeground(Color.WHITE);
+                                                   }
+                                                   else
+                                                   {
+                                                       cell.setBackground(new Color(232, 115, 26));
+                                                       // cell.setBackground(new Color(232, 115, 26));
+                                                       cell.setForeground(Color.WHITE);
+                                                   }
+                                               }
+                                               else
+                                               {
+                                                   if (row % 2 == 0)
+                                                   {
+                                                       if (online)
+                                                       {
+                                                           cell.setBackground(new Color(232, 242, 255));
+                                                           // cell.setBackground(new Color(235, 235, 255));
+                                                       }
+                                                       else
+                                                       {
+                                                           cell.setBackground(new Color(255, 242, 232));
+                                                           // cell.setBackground(new Color(255, 190, 101));
+                                                           // cell.setBackground(new Color(255, 235, 235));
+                                                       }
+                                                   }
+                                                   else
+                                                   {
+                                                       if (online)
+                                                       {
+                                                           cell.setBackground(new Color(212, 222, 235));
+                                                           // cell.setBackground(new Color(245, 245, 255));
+                                                       }
+                                                       else
+                                                       {
+                                                           cell.setBackground(new Color(235, 222, 212));
+                                                           // cell.setBackground(new Color(255, 240, 151));
+                                                           // cell.setBackground(new Color(255, 245, 245));
+                                                       }
+                                                   }
+                                                   cell.setForeground(FONT_COLOR);
+                                               }
+                                               cell.setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, new Color(205, 205, 205)));
+                                               return cell;
+                                           }
+
+                                       };
         this.textArea                  = new JTextArea();
         this.topPanel                  = new JScrollPane();
         this.bottomPanel               = new JScrollPane();
@@ -201,7 +263,8 @@ public class NetworkView
         this.jTable.setRowSorter(this.sorter);
 
         this.infoTable.setAutoResizeMode(JTable.AUTO_RESIZE_NEXT_COLUMN);
-        this.infoTable.setEnabled(false);
+        this.infoTable.setSelectionMode(DefaultListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        this.infoTable.setRowSorter(this.infoTableSorter);
         autoResizeColumns(this.infoTable);
 
         this.topPanel.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
@@ -650,35 +713,31 @@ public class NetworkView
         clearInfo();
         for (final LocalServer server : this.localServers)
         {
-            final String[] newRow = new String[NUMBER_COLUMNS_INFO_TABLE];
-            if (server.isOnline())
+            for (Entry<String, String> mapping : server.getUrlMappings().entrySet())
             {
-                newRow[MODE_COLUMN] = " " + Constants.ONLINE;
-            }
-            else
-            {
-                newRow[MODE_COLUMN] = " " + Constants.OFFLINE;
-            }
-            if (server.getHostname() != null)
-            {
-                try
-                {
-                    newRow[LOCAL_SERVER_COLUMN] = " " + HttpUtils.ommitUrlDefaultPort(server.getHostname());
-                }
-                catch (final Throwable e)
-                {
-                    newRow[LOCAL_SERVER_COLUMN] = " " + server.getHostname();
-                }
+                String         fromUrl = mapping.getKey();
+                String         toUrl   = mapping.getValue();
+
+                final String[] newRow  = new String[NUMBER_COLUMNS_INFO_TABLE];
                 if (server.isOnline())
                 {
-                    newRow[PROXIED_SERVER_COLUMN] = " " + HttpUtils.proxyUrls(server.getHostname());
+                    newRow[MODE_COLUMN] = " " + Constants.ONLINE;
                 }
+                else
+                {
+                    newRow[MODE_COLUMN] = " " + Constants.OFFLINE;
+                }
+                if (server.getRecordingDirectory() != null)
+                {
+                    newRow[RECORDING_DIRECTORY_COLUMN] = " " + server.getRecordingDirectory();
+                }
+                newRow[LOCAL_SERVER_COLUMN] = " " + fromUrl;
+                if (server.isOnline())
+                {
+                    newRow[PROXIED_SERVER_COLUMN] = " " + toUrl;
+                }
+                this.infoDtm.addRow(newRow);
             }
-            if (server.getRecordingDirectory() != null)
-            {
-                newRow[RECORDING_DIRECTORY_COLUMN] = " " + server.getRecordingDirectory();
-            }
-            this.infoDtm.addRow(newRow);
         }
         autoResizeColumns(this.infoTable);
     }
