@@ -45,29 +45,65 @@ import br.com.httpmock.views.actions.ExecutionDetailsAction;
 public class NetworkView
         extends JFrame
 {
-    private static final long          serialVersionUID           = 1L;
-    private static final String[]      COLUMN_NAMES               = new String[] { "Em cache", "Método", "Status", "Nome", "Tipo", "Conteúdo", "Request", "Response", "Seq.", "Thread Id" };
-    private static final int           CACHED_COLUMN              = 0;
-    private static final int           METHOD_COLUMN              = 1;
-    private static final int           STATUS_COLUMN              = 2;
-    private static final int           URL_PATH_COLUMN            = 3;
-    private static final int           CONTENT_TYPE_COLUMN        = 4;
-    private static final int           CONTENT_COLUMN             = 5;
-    private static final int           REQUEST_ID_COLUMN          = 6;
-    private static final int           RESPONSE_ID_COLUMN         = 7;
-    private static final int           SEQUENCE_COLUMN            = 8;
-    private static final int           THREAD_ID_COLUMN           = 9;
+    private static final long          serialVersionUID                         = 1L;
+    private static final String[]      COLUMN_NAMES                             = new String[] {
+            "Em cache",
+            "Método",
+            "Status",
+            "Nome",
+            "Tipo",
+            "Conteúdo",
+            "Request",
+            "Response",
+            "Seq.",
+            "Thread Id",
+            ""
+    };
+    private static final String[]      COLUMNS_LABELS_REFERENCES_FOR_WIDTH      = new String[] {
+            " Em cache ",
+            " PROPFIND ",
+            " Status ",
+            " /teste/teste/teste/teste/teste/teste/teste/teste/teste/teste/teste.html ",
+            " application/vnd.oasis.opendocument.presentation ",
+            null,
+            null,
+            null,
+            " 00000 ",
+            null,
+            null
+    };
+    private static final int           CACHED_COLUMN                            = 0;
+    private static final int           METHOD_COLUMN                            = 1;
+    private static final int           STATUS_COLUMN                            = 2;
+    private static final int           URL_PATH_COLUMN                          = 3;
+    private static final int           CONTENT_TYPE_COLUMN                      = 4;
+    private static final int           CONTENT_COLUMN                           = 5;
+    private static final int           REQUEST_ID_COLUMN                        = 6;
+    private static final int           RESPONSE_ID_COLUMN                       = 7;
+    private static final int           SEQUENCE_COLUMN                          = 8;
+    private static final int           THREAD_ID_COLUMN                         = 9;
+    private static final String[]      INFO_COLUMN_NAMES                        = new String[] {
+            "Modo",
+            "Endereço Local",
+            "Endereço Proxiado Default",
+            "Diretório de Leitura / Gravação",
+            ""
+    };
+    private static final String[]      INFO_COLUMNS_LABELS_REFERENCES_FOR_WIDTH = new String[] {
+            " Modo ",
+            " Endereço Local ",
+            " Endereço Proxiado Default ",
+            " Diretório de Leitura / Gravação ",
+            null
+    };
+    private static final int           MODE_COLUMN                              = 0;
+    private static final int           LOCAL_SERVER_COLUMN                      = 1;
+    private static final int           PROXIED_SERVER_COLUMN                    = 2;
+    private static final int           RECORDING_DIRECTORY_COLUMN               = 3;
 
-    private static final String[]      INFO_COLUMN_NAMES          = new String[] { "Modo", "Endereço Local", "Endereço Proxiado Default", "Diretório de Leitura / Gravação" };
-    private static final int           MODE_COLUMN                = 0;
-    private static final int           LOCAL_SERVER_COLUMN        = 1;
-    private static final int           PROXIED_SERVER_COLUMN      = 2;
-    private static final int           RECORDING_DIRECTORY_COLUMN = 3;
-    private static final int           NUMBER_COLUMNS_INFO_TABLE  = 4;
-
-    private static final Color         FONT_COLOR                 = new Color(32, 32, 32);
-    private static final Color         ERROR_FONT_COLOR           = new Color(224, 32, 32);
-    private static final NetworkView   INSTANCE                   = new NetworkView();
+    private static final Color         FONT_COLOR                               = new Color(32, 32, 32);
+    private static final Color         ERROR_FONT_COLOR                         = new Color(224, 32, 32);
+    private static final NetworkView   INSTANCE                                 = new NetworkView();
 
     private DefaultTableModel          dtm;
     private JTextArea                  textArea;
@@ -80,10 +116,10 @@ public class NetworkView
     private JButton                    infoButton;
     private TableRowSorter<TableModel> sorter;
     private TableRowSorter<TableModel> infoTableSorter;
-    private int                        sequence                   = 0;
-    private List<Integer>              ports                      = new ArrayList<Integer>();
+    private int                        sequence                                 = 0;
+    private List<Integer>              ports                                    = new ArrayList<Integer>();
     private JPanel                     clearPanel;
-    private List<LocalServer>          localServers               = new ArrayList<LocalServer>();
+    private List<LocalServer>          localServers                             = new ArrayList<LocalServer>();
     private JTable                     infoTable;
     private DefaultTableModel          infoDtm;
     private JPanel                     infoTablePanel;
@@ -141,7 +177,7 @@ public class NetworkView
                                                    {
                                                        cell.setBackground(new Color(255, 255, 255));
                                                    }
-                                                   int status = StringUtils.toInteger(getValueAt(row, STATUS_COLUMN));
+                                                   int status = StringUtils.toInteger(getValueAt(row, convertColumnIndexToView(STATUS_COLUMN)));
                                                    if (status >= 400 && status <= 599)
                                                    {
                                                        cell.setForeground(ERROR_FONT_COLOR);
@@ -177,7 +213,7 @@ public class NetworkView
                                            public Component prepareRenderer(TableCellRenderer renderer, int row, int colIndex)
                                            {
                                                JComponent cell   = (JComponent) super.prepareRenderer(renderer, row, colIndex);
-                                               boolean    online = (" " + Constants.ONLINE).equals(getValueAt(row, MODE_COLUMN));
+                                               boolean    online = (" " + Constants.ONLINE).equals(getValueAt(row, convertColumnIndexToView(MODE_COLUMN)));
                                                if (isCellSelected(row, colIndex))
                                                {
                                                    if (online)
@@ -246,26 +282,21 @@ public class NetworkView
         setToFixedLenghtFont(this.textArea);
         this.textArea.setEditable(false);
 
-        fixTableColumnSize(this.jTable, CACHED_COLUMN, " Em cache ");
-        fixTableColumnSize(this.jTable, METHOD_COLUMN, " PROPFIND ");
-        fixTableColumnSize(this.jTable, STATUS_COLUMN, " Status     ");
-        resizeableTableColumnSize(this.jTable, URL_PATH_COLUMN, " Nome     ");
-        fixTableColumnSize(this.jTable, CONTENT_TYPE_COLUMN, " application/vnd.oasis.opendocument.presentation ");
         hideTableColumn(this.jTable, CONTENT_COLUMN);
         hideTableColumn(this.jTable, REQUEST_ID_COLUMN);
         hideTableColumn(this.jTable, RESPONSE_ID_COLUMN);
-        fixTableColumnSize(this.jTable, SEQUENCE_COLUMN, " 00000 ");
         hideTableColumn(this.jTable, THREAD_ID_COLUMN);
 
-        this.infoTable.setAutoResizeMode(JTable.AUTO_RESIZE_NEXT_COLUMN);
+        this.jTable.setAutoResizeMode(JTable.AUTO_RESIZE_LAST_COLUMN);
         this.jTable.setSelectionMode(DefaultListSelectionModel.SINGLE_SELECTION);
         this.jTable.setShowGrid(false);
         this.jTable.setRowSorter(this.sorter);
+        autoResizeColumns(this.jTable, COLUMNS_LABELS_REFERENCES_FOR_WIDTH);
 
-        this.infoTable.setAutoResizeMode(JTable.AUTO_RESIZE_NEXT_COLUMN);
+        this.infoTable.setAutoResizeMode(JTable.AUTO_RESIZE_LAST_COLUMN);
         this.infoTable.setSelectionMode(DefaultListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         this.infoTable.setRowSorter(this.infoTableSorter);
-        autoResizeColumns(this.infoTable);
+        autoResizeColumns(this.infoTable, INFO_COLUMNS_LABELS_REFERENCES_FOR_WIDTH);
 
         this.topPanel.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         this.topPanel.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
@@ -301,24 +332,6 @@ public class NetworkView
         }
     }
 
-    private void fixTableColumnSize(final JTable jTable, final int column, final String referenceWidthText)
-    {
-        double columnWidth = jTable.getDefaultRenderer(String.class).getTableCellRendererComponent(this.jTable, referenceWidthText, false, false, -1, column).getMinimumSize()
-                .getWidth();
-        jTable.getColumnModel().getColumn(column).setMinWidth((int) columnWidth);
-        jTable.getColumnModel().getColumn(column).setPreferredWidth((int) columnWidth);
-        jTable.getColumnModel().getColumn(column).setMaxWidth((int) columnWidth);
-    }
-
-    private void resizeableTableColumnSize(final JTable jTable, final int column, final String referenceWidthText)
-    {
-        final double columnWidth = jTable.getDefaultRenderer(String.class).getTableCellRendererComponent(this.jTable, referenceWidthText, false, false, -1, column).getMinimumSize()
-                .getWidth();
-        jTable.getColumnModel().getColumn(column).setWidth((int) columnWidth);
-        jTable.getColumnModel().getColumn(column).setMinWidth((int) columnWidth);
-        jTable.getColumnModel().getColumn(column).setPreferredWidth((int) columnWidth);
-    }
-
     private void hideTableColumn(final JTable jTable, final int column)
     {
         jTable.getColumnModel().getColumn(column).setWidth(0);
@@ -327,10 +340,15 @@ public class NetworkView
         jTable.getColumnModel().getColumn(column).setMaxWidth(0);
     }
 
-    private void autoResizeColumns(final JTable table)
+    private void autoResizeColumns(final JTable table, String[] columnsLabelsReferencesForWidth)
     {
+        int minWidth = 0;
         for (int column = 0, size2 = table.getColumnCount() - 1; column < size2; column++)
         {
+            if (columnsLabelsReferencesForWidth[column] == null || "".equals(columnsLabelsReferencesForWidth[column].trim()))
+            {
+                continue;
+            }
             double maxWidth = 0;
             // rows width
             for (int row = 0, size1 = table.getRowCount(); row < size1; row++)
@@ -342,16 +360,23 @@ public class NetworkView
                 maxWidth = Math.max(maxWidth, preferredSize.getWidth());
             }
             // column header width
-            Object    value         = INFO_COLUMN_NAMES[column];
+            Object    value         = columnsLabelsReferencesForWidth[table.convertColumnIndexToModel(column)];
             Dimension preferredSize = table.getCellRenderer(-1, column)
                     .getTableCellRendererComponent(table, " " + value + " ", false, false, -1, column)
                     .getMinimumSize();
             maxWidth = Math.max(maxWidth, preferredSize.getWidth());
 
+            if (minWidth == 0)
+            {
+                minWidth = (int) table.getCellRenderer(-1, column)
+                        .getTableCellRendererComponent(table, " ABCDE ", false, false, -1, column)
+                        .getMinimumSize().getWidth();
+            }
+
             table.getColumnModel().getColumn(column).setWidth((int) maxWidth);
-            table.getColumnModel().getColumn(column).setMinWidth((int) maxWidth);
             table.getColumnModel().getColumn(column).setPreferredWidth((int) maxWidth);
-            table.getColumnModel().getColumn(column).setMaxWidth((int) maxWidth);
+            table.getColumnModel().getColumn(column).setMinWidth(minWidth);
+            // table.getColumnModel().getColumn(column).setMaxWidth((int) maxWidth);
         }
     }
 
@@ -420,10 +445,10 @@ public class NetworkView
         int selectedRow = this.jTable.getSelectedRow();
         if (selectedRow != -1)
         {
-            this.textArea.setText((String) this.jTable.getValueAt(selectedRow, CONTENT_COLUMN));
+            this.textArea.setText((String) this.jTable.getValueAt(selectedRow, this.jTable.convertColumnIndexToView(CONTENT_COLUMN)));
             this.textArea.setSelectionStart(0);
             this.textArea.setSelectionEnd(0);
-            int status = StringUtils.toInteger(this.jTable.getValueAt(selectedRow, STATUS_COLUMN));
+            int status = StringUtils.toInteger(this.jTable.getValueAt(selectedRow, this.jTable.convertColumnIndexToView(STATUS_COLUMN)));
             if (status >= 400 && status <= 599)
             {
                 this.textArea.setForeground(ERROR_FONT_COLOR);
@@ -718,7 +743,7 @@ public class NetworkView
                 String         fromUrl = mapping.getKey();
                 String         toUrl   = mapping.getValue();
 
-                final String[] newRow  = new String[NUMBER_COLUMNS_INFO_TABLE];
+                final String[] newRow  = new String[INFO_COLUMN_NAMES.length];
                 if (server.isOnline())
                 {
                     newRow[MODE_COLUMN] = " " + Constants.ONLINE;
@@ -739,7 +764,7 @@ public class NetworkView
                 this.infoDtm.addRow(newRow);
             }
         }
-        autoResizeColumns(this.infoTable);
+        autoResizeColumns(this.infoTable, INFO_COLUMNS_LABELS_REFERENCES_FOR_WIDTH);
     }
 
     private void formatTitle()
