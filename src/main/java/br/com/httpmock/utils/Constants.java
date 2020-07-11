@@ -13,6 +13,7 @@ import br.com.httpmock.server.ProxyServer.TextTransformer;
 
 public interface Constants
 {
+    public static final String          LOCALHOST                                  = "localhost";
     public static final String          HTTPMOCK_FROM_URL                          = "httpmock-from-url";
     public static final String          HTTPMOCK_TO_URL                            = "httpmock-to-url";
     public static final String          MAPPING_FILE_NAME                          = "mappingFileName";

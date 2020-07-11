@@ -52,8 +52,8 @@ import br.com.httpmock.server.ProxyServer.TextTransformer;
 
 public class HttpUtils
 {
-    private static final UrlReplacer      PROXY_URL_REPLACER               = new UrlReplacer();
-    private static final UrlReplacer      REVERSE_PROXY_URL_REPLACER       = new UrlReplacer();
+    private static UrlReplacer            PROXY_URL_REPLACER               = new UrlReplacer();
+    private static UrlReplacer            REVERSE_PROXY_URL_REPLACER       = new UrlReplacer();
     private static final HttpUtils        INSTANCE                         = new HttpUtils();
     @Deprecated // use PROXY_URL_REPLACER
     private static final List<UrlMapping> PROXY                            = new Vector<UrlMapping>();
@@ -89,27 +89,111 @@ public class HttpUtils
         addProxyMapping(fromUrl, toUrl);
     }
 
-    public static void addProxyMapping(String fromUrl, String toUrl)
+    public synchronized static void addProxyMapping(String fromUrl, String toUrl)
             throws MalformedURLException
     {
-        fromUrl = getPath(fromUrl);
-        toUrl   = getPath(toUrl);
+        fromUrl                    = getPath(fromUrl);
+        toUrl                      = getPath(toUrl);
+
+        PROXY_URL_REPLACER         = cloneUrlReplacer(PROXY_URL_REPLACER);
+        REVERSE_PROXY_URL_REPLACER = cloneUrlReplacer(REVERSE_PROXY_URL_REPLACER);
 
         for (String from : getUrlListWithAndWithoutDefaultPort(fromUrl))
         {
             UrlMapping urlMapping = INSTANCE.new UrlMapping(from, ommitUrlDefaultPort(toUrl));
-            PROXY_URL_REPLACER.addMapping(urlMapping.fromUrl, urlMapping.toUrl);
+            getProxyUrlReplacer().addMapping(urlMapping.fromUrl, urlMapping.toUrl);
             PROXY.add(urlMapping);
         }
         for (String to : getUrlListWithAndWithoutDefaultPort(toUrl))
         {
             UrlMapping urlMapping = INSTANCE.new UrlMapping(to, ommitUrlDefaultPort(fromUrl));
-            REVERSE_PROXY_URL_REPLACER.addMapping(urlMapping.fromUrl, urlMapping.toUrl);
+            getReverseProxyUrlReplacer().addMapping(urlMapping.fromUrl, urlMapping.toUrl);
             REVERSE_PROXY.add(urlMapping);
         }
 
         Collections.sort(PROXY);
         Collections.sort(REVERSE_PROXY);
+    }
+
+    public synchronized static void addNewHostMappingsBasedOnExistingHostMapping(String fromHost, String toHost)
+            throws MalformedURLException
+    {
+        PROXY_URL_REPLACER         = cloneUrlReplacerAddingNewHostMappingsBasedOnExistingHost(PROXY_URL_REPLACER, fromHost, toHost);
+        REVERSE_PROXY_URL_REPLACER = cloneUrlReplacerAddingNewHostMappingsBasedOnExistingHost(REVERSE_PROXY_URL_REPLACER, fromHost, toHost);
+    }
+
+    private static UrlReplacer cloneUrlReplacerAddingNewHostMappingsBasedOnExistingHost(UrlReplacer oldUrlReplacer, String fromHost, String toHost)
+            throws MalformedURLException
+    {
+        UrlReplacer newUrlReplacer  = new UrlReplacer();
+
+        String[]    oldFromUrlArray = oldUrlReplacer.getFromUrlArray();
+        String[]    oldToUrlArray   = oldUrlReplacer.getToUrlArray();
+
+        int         size            = Math.min(oldFromUrlArray.length, oldToUrlArray.length);
+        for (int i = 0; i < size; i++)
+        {
+            String fromUrl = oldFromUrlArray[i];
+            String toUrl   = oldToUrlArray[i];
+            newUrlReplacer.addMapping(fromUrl, toUrl);
+
+            String newFromUrl = replaceHostInUrl(fromUrl, fromHost, toHost);
+            String newToUrl   = replaceHostInUrl(toUrl, fromHost, toHost);
+            if (!fromUrl.equals(newFromUrl) || !toUrl.equals(newToUrl))
+            {
+                newUrlReplacer.addMapping(newFromUrl, newToUrl);
+            }
+        }
+
+        return newUrlReplacer;
+    }
+
+    private static String replaceHostInUrl(String url, String fromHost, String toHost)
+            throws MalformedURLException
+    {
+        if (isSameHost(url, fromHost))
+        {
+            int idx = url.indexOf(fromHost);
+            if (idx != -1)
+            {
+                return url.substring(0, idx) + toHost + url.substring(idx + fromHost.length());
+            }
+        }
+        return url;
+    }
+
+    private static boolean isSameHost(String url, String host)
+            throws MalformedURLException
+    {
+        return new URL(url).getHost().equals(host);
+    }
+
+    private static UrlReplacer cloneUrlReplacer(UrlReplacer oldUrlReplacer)
+    {
+        UrlReplacer newUrlReplacer  = new UrlReplacer();
+
+        String[]    oldFromUrlArray = oldUrlReplacer.getFromUrlArray();
+        String[]    oldToUrlArray   = oldUrlReplacer.getToUrlArray();
+
+        int         size            = Math.min(oldFromUrlArray.length, oldToUrlArray.length);
+        for (int i = 0; i < size; i++)
+        {
+            String fromUrl = oldFromUrlArray[i];
+            String toUrl   = oldToUrlArray[i];
+            newUrlReplacer.addMapping(fromUrl, toUrl);
+        }
+
+        return newUrlReplacer;
+    }
+
+    private synchronized static UrlReplacer getProxyUrlReplacer()
+    {
+        return PROXY_URL_REPLACER;
+    }
+
+    private synchronized static UrlReplacer getReverseProxyUrlReplacer()
+    {
+        return REVERSE_PROXY_URL_REPLACER;
     }
 
     public static String ommitUrlDefaultPort(String txtUrl)
@@ -152,12 +236,12 @@ public class HttpUtils
         return urlList;
     }
 
-    public static List<UrlMapping> getProxyMappings()
+    public synchronized static List<UrlMapping> getProxyMappings()
     {
         return Collections.unmodifiableList(PROXY);
     }
 
-    public static List<UrlMapping> getReverseProxyMappings()
+    public synchronized static List<UrlMapping> getReverseProxyMappings()
     {
         return Collections.unmodifiableList(REVERSE_PROXY);
     }
@@ -168,7 +252,7 @@ public class HttpUtils
         {
             return null;
         }
-        return PROXY_URL_REPLACER.replace(text);
+        return getProxyUrlReplacer().replace(text);
     }
 
     public static String reverseProxyUrls(String text)
@@ -177,7 +261,7 @@ public class HttpUtils
         {
             return null;
         }
-        return REVERSE_PROXY_URL_REPLACER.replace(text);
+        return getReverseProxyUrlReplacer().replace(text);
     }
 
     public static String getPath(String url)

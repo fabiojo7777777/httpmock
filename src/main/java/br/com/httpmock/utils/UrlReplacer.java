@@ -2,6 +2,8 @@ package br.com.httpmock.utils;
 
 import java.net.URI;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.hc.core5.net.URLEncodedUtils;
 
@@ -353,6 +355,34 @@ public class UrlReplacer
     public static void debugln(Object obj)
     {
 //        System.out.println(obj);
+    }
+
+    public String[] getFromUrlArray()
+    {
+        List<String> fromUrl = new ArrayList<String>();
+        int          size  = Math.min(isPlainUrl.length, fromUrlArray.length);
+        for (int i = 0; i < size; i++)
+        {
+            if (isPlainUrl[i])
+            {
+                fromUrl.add(fromUrlArray[i]);
+            }
+        }
+        return fromUrl.toArray(new String[fromUrl.size()]);
+    }
+
+    public String[] getToUrlArray()
+    {
+        List<String> toUrl = new ArrayList<String>();
+        int          size  = Math.min(isPlainUrl.length, toUrlArray.length);
+        for (int i = 0; i < size; i++)
+        {
+            if (isPlainUrl[i])
+            {
+                toUrl.add(toUrlArray[i]);
+            }
+        }
+        return toUrl.toArray(new String[toUrl.size()]);
     }
 
 }

@@ -616,20 +616,34 @@ public class NetworkView
             if (response.getEntity().getContentLength() > Constants.DISPLAY_MAX_BODY_LENGTH
                     && response.getCode() != HttpStatus.SC_NOT_FOUND)
             {
-                String mappingFileName;
+                String  mappingFileName;
+                boolean wasRecorded = true;
                 try
                 {
-                    mappingFileName = response.getHeader(Constants.MAPPING_FILE_NAME).getValue();
+                    Header header = response.getHeader(Constants.MAPPING_FILE_NAME);
+                    if (header == null)
+                    {
+                        wasRecorded = false;
+                    }
+                    mappingFileName = header.getValue();
                 }
                 catch (final Throwable e)
                 {
                     mappingFileName = "<<Erro ao obter nome do arquivo de mapeamento [" + StringUtils.getErrorMessage(e) + "]>>";
                 }
-                content = "Arquivo muito grande para ser exibido (>" +
-                        Constants.DISPLAY_MAX_BODY_LENGTH +
-                        "bytes). Consulte o arquivo de mapeamento " +
-                        mappingFileName +
-                        " para obter mais detalhes da resposta retornada que foi gravada em disco";
+                if (!wasRecorded)
+                {
+                    content = "Arquivo muito grande para ser exibido (>" +
+                            Constants.DISPLAY_MAX_BODY_LENGTH + "bytes).";
+                }
+                else
+                {
+                    content = "Arquivo muito grande para ser exibido (>" +
+                            Constants.DISPLAY_MAX_BODY_LENGTH +
+                            "bytes). Consulte o arquivo de mapeamento " +
+                            mappingFileName +
+                            " para obter mais detalhes da resposta retornada que foi gravada em disco";
+                }
             }
             else
             {

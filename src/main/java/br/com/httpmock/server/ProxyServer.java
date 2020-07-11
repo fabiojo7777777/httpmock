@@ -94,7 +94,7 @@ public class ProxyServer
         final ServerBootstrap serverBootstrap = ServerBootstrap.bootstrap();
         if (needsDefaultLocalhostMapping(localServerList))
         {
-            serverBootstrap.registerVirtual("localhost", "*", getDefaultLocalhostHandler());
+            serverBootstrap.registerVirtual(Constants.LOCALHOST, "*", getDefaultLocalhostHandler());
         }
         for (LocalServer localServer : localServerList)
         {
@@ -271,7 +271,7 @@ public class ProxyServer
         {
             String localHostName          = localServer.getHostname();
             String canonicalLocalHostName = new URL(localHostName).getHost();
-            if ("localhost".equals(canonicalLocalHostName))
+            if (Constants.LOCALHOST.equals(canonicalLocalHostName))
             {
                 return false;
             }
@@ -596,13 +596,27 @@ public class ProxyServer
                 // However if in offline mode, there will not be a new request
                 // to do, and no looping, only reading a file... so proceed is
                 // authorized
-                final String toUrl = HttpUtils.proxyUrls(fromUrl);
+                String toUrl = HttpUtils.proxyUrls(fromUrl);
                 if (ONLINE && fromUrl.equals(toUrl))
                 {
-                    throw new RuntimeException(
-                            "A url '"
-                                    + fromUrl
-                                    + "' não está mapeada para ser proxiada por este servidor proxy. Para ter o proxy e o proxy reverso das mensagens http, esta url precisa estar mapeada na ferramenta");
+                    // IF:
+                    // 1. this server answer all localhost requests;
+                    // 2. proxy mapping have localhost mapping
+                    // 3. request host is not localhost
+                    //
+                    // fromUrl and toUrl will be the same, because request host is not mapped.
+                    //
+                    // So, try to add request host mapping based on the localhost proxy mapping and
+                    // try to proxy url again
+                    tryToAddRequestHostnameBasedOnLocalhostMappings(fromUrl);
+                    toUrl = HttpUtils.proxyUrls(fromUrl);
+                    if (ONLINE && fromUrl.equals(toUrl))
+                    {
+                        throw new RuntimeException(
+                                "A url '"
+                                        + fromUrl
+                                        + "' não está mapeada para ser proxiada por este servidor proxy. Para ter o proxy e o proxy reverso das mensagens http, esta url precisa estar mapeada na ferramenta");
+                    }
                 }
 
                 final ClassicHttpRequest requestStub = new BasicClassicHttpRequest(
@@ -677,6 +691,14 @@ public class ProxyServer
             String requestProtocol = url.getProtocol();
             String requestHostname = url.getHost();
             int    requestPort     = HttpUtils.getPort(url);
+
+            if (Constants.LOCALHOST.equalsIgnoreCase(this.HOSTNAME))
+            {
+                // if this server answer all localhost requests, assumes that requestHostname is
+                // localhost
+                requestHostname = Constants.LOCALHOST;
+            }
+
             // the request is for this server or fell here by mistake?
             if (!this.PROTOCOL.equals(requestProtocol)
                     || !this.HOSTNAME.equals(requestHostname)
@@ -690,6 +712,19 @@ public class ProxyServer
             }
         }
 
+        public void tryToAddRequestHostnameBasedOnLocalhostMappings(String fromUrl)
+                throws MalformedURLException
+        {
+            if (Constants.LOCALHOST.equals(this.HOSTNAME))
+            {
+                URL    url             = new URL(fromUrl);
+                String requestHostname = url.getHost();
+
+                // add automatically new mappings from this requestHostname based on the
+                // existing localhost mapping
+                HttpUtils.addNewHostMappingsBasedOnExistingHostMapping(Constants.LOCALHOST, requestHostname);
+            }
+        }
     }
 
     public static interface TextTransformer

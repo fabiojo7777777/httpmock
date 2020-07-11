@@ -40,6 +40,8 @@ import org.apache.hc.core5.http.MisdirectedRequestException;
 import org.apache.hc.core5.net.URIAuthority;
 import org.apache.hc.core5.util.Args;
 
+import br.com.httpmock.utils.Constants;
+
 /**
  * Generic registry of request handlers that can be resolved by properties of
  * request messages.
@@ -51,9 +53,6 @@ import org.apache.hc.core5.util.Args;
 @Contract(threading = ThreadingBehavior.SAFE_CONDITIONAL)
 public class RequestHandlerRegistry<T> implements HttpRequestMapper<T>
 {
-
-    private final static String                            LOCALHOST = "localhost";
-
     private final String                                   canonicalHostName;
     private final Supplier<LookupRegistry<T>>              registrySupplier;
     private final LookupRegistry<T>                        primary;
@@ -92,12 +91,12 @@ public class RequestHandlerRegistry<T> implements HttpRequestMapper<T>
 
     public RequestHandlerRegistry(final UriPatternType patternType)
     {
-        this(LOCALHOST, patternType);
+        this(Constants.LOCALHOST, patternType);
     }
 
     public RequestHandlerRegistry()
     {
-        this(LOCALHOST, UriPatternType.URI_PATTERN);
+        this(Constants.LOCALHOST, UriPatternType.URI_PATTERN);
     }
 
     private LookupRegistry<T> getPatternMatcher(final String hostname)
@@ -106,7 +105,7 @@ public class RequestHandlerRegistry<T> implements HttpRequestMapper<T>
         {
             return primary;
         }
-        if (hostname.equals(canonicalHostName) || hostname.equals(LOCALHOST))
+        if (hostname.equals(canonicalHostName) || hostname.equals(Constants.LOCALHOST))
         {
             return primary;
         }
@@ -124,7 +123,7 @@ public class RequestHandlerRegistry<T> implements HttpRequestMapper<T>
         {
             // if the request host is not mapped, redirects the request to the
             // localhost [the default mapping on Httpmock] mapping
-            patternMatcher = getPatternMatcher("localhost");
+            patternMatcher = getPatternMatcher(Constants.LOCALHOST);
             if (patternMatcher == null)
             {
                 throw new MisdirectedRequestException("Not authoritative");
@@ -147,7 +146,7 @@ public class RequestHandlerRegistry<T> implements HttpRequestMapper<T>
             return;
         }
         final String key = hostname != null ? hostname.toLowerCase(Locale.ROOT) : null;
-        if (hostname == null || hostname.equals(canonicalHostName) || hostname.equals(LOCALHOST))
+        if (hostname == null || hostname.equals(canonicalHostName) || hostname.equals(Constants.LOCALHOST))
         {
             primary.register(uriPattern, object);
         }
