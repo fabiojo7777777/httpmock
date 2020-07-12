@@ -125,12 +125,13 @@ public class HttpUtils
     private static UrlReplacer cloneUrlReplacerAddingNewHostMappingsBasedOnExistingHost(UrlReplacer oldUrlReplacer, String fromHost, String toHost)
             throws MalformedURLException
     {
-        UrlReplacer newUrlReplacer  = new UrlReplacer();
+        UrlReplacer newUrlReplacer   = new UrlReplacer();
 
-        String[]    oldFromUrlArray = oldUrlReplacer.getFromUrlArray();
-        String[]    oldToUrlArray   = oldUrlReplacer.getToUrlArray();
+        String[]    oldFromUrlArray  = oldUrlReplacer.getFromUrlArray();
+        String[]    oldToUrlArray    = oldUrlReplacer.getToUrlArray();
 
-        int         size            = Math.min(oldFromUrlArray.length, oldToUrlArray.length);
+        int         size             = Math.min(oldFromUrlArray.length, oldToUrlArray.length);
+        boolean     mappingsModified = false;
         for (int i = 0; i < size; i++)
         {
             String fromUrl = oldFromUrlArray[i];
@@ -141,11 +142,19 @@ public class HttpUtils
             String newToUrl   = replaceHostInUrl(toUrl, fromHost, toHost);
             if (!fromUrl.equals(newFromUrl) || !toUrl.equals(newToUrl))
             {
+                mappingsModified = true;
                 newUrlReplacer.addMapping(newFromUrl, newToUrl);
             }
         }
 
-        return newUrlReplacer;
+        if (mappingsModified)
+        {
+            return newUrlReplacer;
+        }
+        else
+        {
+            return oldUrlReplacer;
+        }
     }
 
     private static String replaceHostInUrl(String url, String fromHost, String toHost)
