@@ -1,6 +1,7 @@
 package br.com.httpmock.utils;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.DataInputStream;
@@ -10,6 +11,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -270,6 +273,40 @@ public class FileUtils
     public static void writeToFile(String fileName, byte[] byteArray)
             throws IOException
     {
+        try
+        {
+            writeToFileWithFileChannel(fileName, byteArray);
+        }
+        catch (Throwable e)
+        {
+            writeToFileWithStream(fileName, byteArray);
+        }
+    }
+
+    private static void writeToFileWithFileChannel(String fileName, byte[] byteArray)
+            throws IOException
+    {
+        FileOutputStream     fos  = null;
+        FileChannel          fc   = null;
+        ByteArrayInputStream bais = null;
+        try
+        {
+            File file = new File(getApplicationRunningPath() + fileName);
+            file.getParentFile().mkdirs();
+            fos  = new FileOutputStream(file);
+            fc   = fos.getChannel();
+            bais = new ByteArrayInputStream(byteArray);
+            fc.transferFrom(Channels.newChannel(bais), 0, byteArray.length);
+        }
+        finally
+        {
+            close(fc, fos, bais);
+        }
+    }
+
+    private static void writeToFileWithStream(String fileName, byte[] byteArray)
+            throws IOException
+    {
         FileOutputStream fos = null;
         try
         {
@@ -281,17 +318,7 @@ public class FileUtils
         }
         finally
         {
-            try
-            {
-                if (fos != null)
-                {
-                    fos.close();
-                }
-            }
-            catch (Throwable e)
-            {
-                // ignore
-            }
+            close(fos);
         }
     }
 
