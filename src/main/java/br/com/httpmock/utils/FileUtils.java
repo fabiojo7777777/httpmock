@@ -13,6 +13,8 @@ import java.io.InputStreamReader;
 import java.net.URI;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -286,21 +288,33 @@ public class FileUtils
     private static void writeToFileWithFileChannel(String fileName, byte[] byteArray)
             throws IOException
     {
-        FileOutputStream     fos  = null;
-        FileChannel          fc   = null;
-        ByteArrayInputStream bais = null;
+        FileChannel          outputCh = null;
+        FileOutputStream     os       = null;
+
+        ReadableByteChannel  inputCh  = null;
+        ByteArrayInputStream is       = null;
+
         try
         {
             File file = new File(getApplicationRunningPath() + fileName);
             file.getParentFile().mkdirs();
-            fos  = new FileOutputStream(file);
-            fc   = fos.getChannel();
-            bais = new ByteArrayInputStream(byteArray);
-            fc.transferFrom(Channels.newChannel(bais), 0, byteArray.length);
+
+            os       = new FileOutputStream(file);
+            outputCh = os.getChannel();
+
+            is       = new ByteArrayInputStream(byteArray);
+            inputCh  = Channels.newChannel(is);
+
+            long lengthTransferred = outputCh.transferFrom(inputCh, 0, byteArray.length);
+
+            if (lengthTransferred < byteArray.length)
+            {
+                throw new IOException("Transfer not completed");
+            }
         }
         finally
         {
-            close(fc, fos, bais);
+            close(outputCh, os, inputCh, is);
         }
     }
 
@@ -325,21 +339,79 @@ public class FileUtils
     public static String readFile(String fileName)
             throws IOException
     {
-        StringBuffer      sb   = new StringBuffer();
-        File              file = new File(getApplicationRunningPath() + fileName);
-        FileInputStream   fis  = new FileInputStream(file);
-        InputStreamReader isr  = new InputStreamReader(fis, Constants.UTF8);
-        BufferedReader    br   = new BufferedReader(isr);
-
-        String            line = br.readLine();
-        while (line != null)
+        try
         {
-            sb.append(line);
-            line = br.readLine();
+            return readFileUsingFileChannel(fileName);
         }
-        close(br, isr, fis);
+        catch (Throwable e)
+        {
+            return readFileUsingStream(fileName);
+        }
+    }
 
-        return sb.toString();
+    private static String readFileUsingFileChannel(String fileName)
+            throws IOException
+    {
+        FileChannel           inputCh  = null;
+        FileInputStream       is       = null;
+
+        WritableByteChannel   outputCh = null;
+        ByteArrayOutputStream os       = null;
+        try
+        {
+            File file   = new File(getApplicationRunningPath() + fileName);
+            long length = file.length();
+
+            is       = new FileInputStream(file);
+            inputCh  = is.getChannel();
+
+            os       = new ByteArrayOutputStream();
+            outputCh = Channels.newChannel(os);
+
+            long lengthTransferred = inputCh.transferTo(0, length, outputCh);
+            if (lengthTransferred < length)
+            {
+                throw new IOException("Transfer not completed");
+            }
+
+            close(outputCh);
+
+            return os.toString(Constants.UTF8);
+        }
+        finally
+        {
+            close(outputCh, os, inputCh, is);
+        }
+    }
+
+    private static String readFileUsingStream(String fileName)
+            throws IOException
+    {
+        FileInputStream   fis = null;
+        InputStreamReader isr = null;
+        BufferedReader    br  = null;
+        try
+        {
+            StringBuffer sb   = new StringBuffer();
+
+            File         file = new File(getApplicationRunningPath() + fileName);
+            fis = new FileInputStream(file);
+            isr = new InputStreamReader(fis, Constants.UTF8);
+            br  = new BufferedReader(isr);
+
+            String line = br.readLine();
+            while (line != null)
+            {
+                sb.append(line);
+                line = br.readLine();
+            }
+
+            return sb.toString();
+        }
+        finally
+        {
+            close(br, isr, fis);
+        }
     }
 
     public static byte[] readBinaryFile(String fileName)
