@@ -142,8 +142,11 @@ public class HttpUtils
             String newToUrl   = replaceHostInUrl(toUrl, fromHost, toHost);
             if (!fromUrl.equals(newFromUrl) || !toUrl.equals(newToUrl))
             {
-                mappingsModified = true;
-                newUrlReplacer.addMapping(newFromUrl, newToUrl);
+                if (!hasMapping(newFromUrl, newToUrl, oldFromUrlArray, oldToUrlArray))
+                {
+                    mappingsModified = true;
+                    newUrlReplacer.addMapping(newFromUrl, newToUrl);
+                }
             }
         }
 
@@ -155,6 +158,21 @@ public class HttpUtils
         {
             return oldUrlReplacer;
         }
+    }
+
+    private static boolean hasMapping(String newFromUrl, String newToUrl, String[] oldFromUrlArray, String[] oldToUrlArray)
+    {
+        int size = Math.min(oldFromUrlArray.length, oldToUrlArray.length);
+        for (int i = 0; i < size; i++)
+        {
+            String oldFromUrl = oldFromUrlArray[i];
+            String oldToUrl   = oldToUrlArray[i];
+            if (oldFromUrl.equals(newFromUrl) && oldToUrl.equals(newToUrl))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String replaceHostInUrl(String url, String fromHost, String toHost)
