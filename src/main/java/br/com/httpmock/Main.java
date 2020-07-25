@@ -687,12 +687,42 @@ public class Main
         for (int i = 0, size = Math.min(path.size(), toUrl.size()); i < size; i++)
         {
             String fromUrl = serverAddress + path.get(i);
-            HttpUtils.addProxyMapping(fromUrl, toUrl.get(i));
-            localServer.addUrlMapping(fromUrl, toUrl.get(i));
+            String toUrl1  = getToUrlWithDefaultProtocolWhenNoProtocolBasedOnFromUrl(toUrl.get(i), fromUrl);
+            ValidatorUtils.validUrl(toUrl1,
+                    "A url ou a autoridade de url '"
+                            + toUrl.get(i)
+                            + "' no arquivo de configuração '"
+                            + configFileName
+                            + (parameter == null ? "' antes da última linha" : "', antes da linha " + parameter.getLineNumber())
+                            + " não é válida");
+            HttpUtils.addProxyMapping(fromUrl, toUrl1);
+            localServer.addUrlMapping(fromUrl, toUrl1);
         }
         if (path.size() == 0 || toUrl.size() == 0)
         {
             localServer.addUrlMapping(serverAddress, "");
+        }
+    }
+
+    private static String getToUrlWithDefaultProtocolWhenNoProtocolBasedOnFromUrl(String toUrl, String fromUrl)
+            throws MalformedURLException
+    {
+        if (toUrl.toUpperCase().startsWith(Constants.HTTP)
+                || toUrl.toUpperCase().startsWith(Constants.HTTPS))
+        {
+            return toUrl;
+        }
+        else if (new URL(fromUrl).getProtocol().equalsIgnoreCase(Constants.HTTP))
+        {
+            return "http://" + toUrl;
+        }
+        else if (new URL(fromUrl).getProtocol().equalsIgnoreCase(Constants.HTTPS))
+        {
+            return "https://" + toUrl;
+        }
+        else
+        {
+            return null;
         }
     }
 

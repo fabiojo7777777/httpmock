@@ -53,6 +53,7 @@ public class ValidatorUtils
         try
         {
             URL url = new URL(value);
+            url.toURI(); // valid URI?
             if (!"HTTP".equalsIgnoreCase(url.getProtocol())
                     && !"HTTPS".equalsIgnoreCase(url.getProtocol()))
             {
