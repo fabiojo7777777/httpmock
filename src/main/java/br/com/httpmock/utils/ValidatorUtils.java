@@ -54,8 +54,8 @@ public class ValidatorUtils
         {
             URL url = new URL(value);
             url.toURI(); // valid URI?
-            if (!"HTTP".equalsIgnoreCase(url.getProtocol())
-                    && !"HTTPS".equalsIgnoreCase(url.getProtocol()))
+            if (!Constants.HTTP.equalsIgnoreCase(url.getProtocol())
+                    && !Constants.HTTPS.equalsIgnoreCase(url.getProtocol()))
             {
                 throw new RuntimeException("Somente protocolo http e https são aceitos");
             }
@@ -66,4 +66,24 @@ public class ValidatorUtils
         }
     }
 
+    public static void validUrlOrAuthority(String value, String errorMessage)
+    {
+        try
+        {
+            if (value.toUpperCase().startsWith(Constants.HTTP)
+                    || value.toUpperCase().startsWith(Constants.HTTPS))
+            {
+                validUrl(value, errorMessage);
+            }
+            else
+            {
+                validUrl("http://" + value, errorMessage);
+                validUrl("https://" + value, errorMessage);
+            }
+        }
+        catch (Throwable e)
+        {
+            throw new RuntimeException(errorMessage);
+        }
+    }
 }

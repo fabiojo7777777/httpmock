@@ -271,7 +271,6 @@ public class Main
         if (parameters != null && parameters.size() > 0)
         {
             String        virtualServer           = null;
-            int           port                    = -1;
             boolean       online                  = false;
             List<String>  path                    = new ArrayList<String>();
             List<String>  toUrl                   = new ArrayList<String>();
@@ -313,21 +312,20 @@ public class Main
                                     + " não está preenchido ['"
                                     + parameter.getValue()
                                     + "']");
-                    ValidatorUtils.validUrl(parameter.getValue(),
+                    ValidatorUtils.validUrlOrAuthority(parameter.getValue(),
                             "O parâmetro '"
                                     + Constants.VIRTUAL_SERVER
                                     + "' no arquivo de configuração '"
                                     + configFileName
                                     + "', na linha "
                                     + parameter.getLineNumber()
-                                    + " não possui um endereço de servidor válido ['"
+                                    + " não possui uma url ou autoridade de url válida ['"
                                     + parameter.getValue()
                                     + "']");
 
                     addLocalServer(
                             serversByPortNumber,
                             virtualServer,
-                            port,
                             online,
                             path,
                             toUrl,
@@ -346,7 +344,6 @@ public class Main
                             parameter);
 
                     virtualServer           = null;
-                    port                    = -1;
                     online                  = false;
                     path                    = new ArrayList<String>();
                     toUrl                   = new ArrayList<String>();
@@ -362,9 +359,7 @@ public class Main
                     offlineCyclicResponses  = false;
                     offlineIgnoreHttpStatus = null;
 
-                    URL url = new URL(parameter.getValue());
-                    port          = HttpUtils.getPort(url);
-                    virtualServer = url.getProtocol() + "://" + url.getHost() + ":" + port;
+                    virtualServer           = parameter.getValue();
                 }
                 else if (Constants.PROXY_PASS_AND_REVERSE.equalsIgnoreCase(parameter.getKey()))
                 {
@@ -388,7 +383,7 @@ public class Main
                                     + "', na linha "
                                     + parameter.getLineNumber()
                                     + " não está preenchido corretamente ['"
-                                    + parameter.getValue()
+                                    + values[0]
                                     + "']");
                     ValidatorUtils.notEmpty(values[1],
                             "O parâmetro '"
@@ -398,7 +393,17 @@ public class Main
                                     + "', na linha "
                                     + parameter.getLineNumber()
                                     + " não está preenchido corretamente ['"
-                                    + parameter.getValue()
+                                    + values[1]
+                                    + "']");
+                    ValidatorUtils.validUrlOrAuthority(values[1],
+                            "O parâmetro '"
+                                    + Constants.PROXY_PASS_AND_REVERSE
+                                    + "' no arquivo de configuração '"
+                                    + configFileName
+                                    + "', na linha "
+                                    + parameter.getLineNumber()
+                                    + " não possui uma url ou autoridade de url válida ['"
+                                    + values[1]
                                     + "']");
 
                     path.add(values[0]);
@@ -582,7 +587,6 @@ public class Main
             addLocalServer(
                     serversByPortNumber,
                     virtualServer,
-                    port,
                     online,
                     path,
                     toUrl,
@@ -606,8 +610,114 @@ public class Main
 
     private static void addLocalServer(
             Map<Integer, List<LocalServer>> serversByPortNumber,
-            String serverAddress,
-            int port,
+            String virtualServerEspecified,
+            boolean online,
+            List<String> path,
+            List<String> toUrl,
+            String recordingDirectoryEspecified,
+            boolean clientAuth,
+            boolean preserveHostHeader,
+            String keystore,
+            String keystorePassword,
+            String truststore,
+            String truststorePassword,
+            List<String> matchHeaders,
+            List<String> offlineIgnoreParameters,
+            boolean offlineCyclicResponses,
+            List<Integer> offlineIgnoreHttpStatus,
+            String configFileName,
+            Parameter parameter)
+            throws MalformedURLException
+    {
+        if (virtualServerEspecified == null)
+        {
+            return;
+        }
+        else
+        {
+            List<String> virtualServerNames   = new Vector<String>();
+            List<String> recordingDirectories = new Vector<String>();
+            if (virtualServerEspecified.toUpperCase().startsWith(Constants.HTTP)
+                    || virtualServerEspecified.toUpperCase().startsWith(Constants.HTTPS))
+            {
+                virtualServerNames.add(virtualServerEspecified);
+                recordingDirectories.add(recordingDirectoryEspecified);
+            }
+            else
+            {
+                URL u1 = new URL("http://" + virtualServerEspecified);
+                URL u2 = new URL("https://" + virtualServerEspecified);
+                if (HttpUtils.getPort(u1) == HttpUtils.getPort(u2))
+                {
+                    throw new RuntimeException(
+                            "O parâmetro '"
+                                    + Constants.VIRTUAL_SERVER
+                                    + "' no arquivo de configuração '"
+                                    + configFileName
+                                    + (parameter == null ? "' antes da última linha" : "', antes da linha " + parameter.getLineNumber())
+                                    + " não pode ter a porta especificada quando não for especificado o protocolo do servidor virtual '" +
+                                    virtualServerEspecified
+                                    + " '");
+                }
+                virtualServerNames.add("http://" + virtualServerEspecified);
+                recordingDirectories.add(appendProtocolOnDirectoryName("http", recordingDirectoryEspecified));
+                virtualServerNames.add("https://" + virtualServerEspecified);
+                recordingDirectories.add(appendProtocolOnDirectoryName("https", recordingDirectoryEspecified));
+            }
+            for (int i = 0, size = Math.min(virtualServerNames.size(), recordingDirectories.size()); i < size; i++)
+            {
+                String virtualServer      = virtualServerNames.get(i);
+                String recordingDirectory = recordingDirectories.get(i);
+                addLocalServer2(
+                        serversByPortNumber,
+                        virtualServer,
+                        virtualServerEspecified,
+                        online,
+                        path,
+                        toUrl,
+                        recordingDirectory,
+                        clientAuth,
+                        preserveHostHeader,
+                        keystore,
+                        keystorePassword,
+                        truststore,
+                        truststorePassword,
+                        matchHeaders,
+                        offlineIgnoreParameters,
+                        offlineCyclicResponses,
+                        offlineIgnoreHttpStatus,
+                        configFileName,
+                        parameter);
+            }
+        }
+    }
+
+    private static String appendProtocolOnDirectoryName(String protocol, String recordingDirectory)
+    {
+        int idx1 = recordingDirectory.lastIndexOf("/");
+        if (idx1 == -1)
+        {
+            idx1 = recordingDirectory.lastIndexOf("\\");
+        }
+        if (idx1 != -1)
+        {
+            return recordingDirectory.substring(0, idx1 + 1) +
+                    protocol +
+                    "_" +
+                    recordingDirectory.substring(idx1 + 1);
+        }
+        else
+        {
+            return protocol +
+                    "_" +
+                    recordingDirectory;
+        }
+    }
+
+    private static void addLocalServer2(
+            Map<Integer, List<LocalServer>> serversByPortNumber,
+            String virtualServer,
+            String virtualServerEspecified,
             boolean online,
             List<String> path,
             List<String> toUrl,
@@ -626,10 +736,9 @@ public class Main
             Parameter parameter)
             throws MalformedURLException
     {
-        if (serverAddress == null)
-        {
-            return;
-        }
+        URL url = new URL(virtualServer);
+        virtualServer = url.getProtocol() + "://" + url.getHost() + ":" + HttpUtils.getPort(url);
+        int port = HttpUtils.getPort(url);
 
         if (!online && recordingDirectory == null)
         {
@@ -651,7 +760,7 @@ public class Main
         }
         else
         {
-            URL    url2             = new URL(serverAddress);
+            URL    url2             = new URL(virtualServer);
             String requestHostname2 = url2.getHost();
             int    requestPort2     = HttpUtils.getPort(url2);
             for (LocalServer server : localServerList)
@@ -665,13 +774,13 @@ public class Main
                     throw new RuntimeException(
                             "Existem 2 ou mais servidores virtuais mapeados para o mesmo endereço no arquivo de configuração '"
                                     + configFileName
-                                    + "' ['" + serverAddress + "']");
+                                    + "' ['" + virtualServerEspecified + "']");
                 }
             }
         }
         LocalServer localServer = new LocalServer(
                 online,
-                serverAddress,
+                virtualServer,
                 keystore,
                 keystorePassword,
                 truststore,
@@ -686,7 +795,7 @@ public class Main
         localServerList.add(localServer);
         for (int i = 0, size = Math.min(path.size(), toUrl.size()); i < size; i++)
         {
-            String fromUrl = serverAddress + path.get(i);
+            String fromUrl = virtualServer + path.get(i);
             String toUrl1  = getToUrlWithDefaultProtocolWhenNoProtocolBasedOnFromUrl(toUrl.get(i), fromUrl);
             ValidatorUtils.validUrl(toUrl1,
                     "A url ou a autoridade de url '"
@@ -700,7 +809,7 @@ public class Main
         }
         if (path.size() == 0 || toUrl.size() == 0)
         {
-            localServer.addUrlMapping(serverAddress, "");
+            localServer.addUrlMapping(virtualServer, "");
         }
     }
 
