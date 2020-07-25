@@ -652,17 +652,14 @@ public class Main
         else
         {
             URL    url2             = new URL(serverAddress);
-            String requestProtocol2 = url2.getProtocol();
             String requestHostname2 = url2.getHost();
             int    requestPort2     = HttpUtils.getPort(url2);
             for (LocalServer server : localServerList)
             {
                 URL    url1             = new URL(server.getHostname());
-                String requestProtocol1 = url1.getProtocol();
                 String requestHostname1 = url1.getHost();
                 int    requestPort1     = HttpUtils.getPort(url1);
-                if (requestProtocol1.equals(requestProtocol2)
-                        && requestHostname1.equals(requestHostname2)
+                if (requestHostname1.equals(requestHostname2)
                         && requestPort1 == requestPort2)
                 {
                     throw new RuntimeException(
