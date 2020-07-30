@@ -7,6 +7,7 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.net.ssl.SSLParameters;
@@ -44,6 +45,7 @@ import org.apache.hc.core5.util.Args;
 import org.apache.hc.core5.util.Timeout;
 
 import br.com.httpmock.Main.LocalServer;
+import br.com.httpmock.Main.UrlMapping;
 import br.com.httpmock.utils.Constants;
 import br.com.httpmock.utils.HttpUtils;
 import br.com.httpmock.utils.StringUtils;
@@ -92,10 +94,6 @@ public class ProxyServer
     {
         int                   localHostPort   = -1;
         final ServerBootstrap serverBootstrap = ServerBootstrap.bootstrap();
-        if (needsDefaultLocalhostMapping(localServerList))
-        {
-            serverBootstrap.registerVirtual(Constants.LOCALHOST, "*", getDefaultLocalhostHandler());
-        }
         for (LocalServer localServer : localServerList)
         {
             boolean       isOnline               = localServer.isOnline();
@@ -110,17 +108,72 @@ public class ProxyServer
             String        canonicalLocalHostName = new URL(localHostName).getHost();
             localHostPort = HttpUtils.getPort(new URL(localHostName));
 
-            String         recordingDirectory      = localServer.getRecordingDirectory();
-            List<String>   offlineMatchHeaders     = localServer.getOfflineMatchHeaders();
-            List<String>   offlineIgnoreParameters = localServer.getOfflineIgnoreParameters();
-            boolean        offlineCyclicResponses  = localServer.isOfflineCyclicResponses();
-            List<Integer>  offlineIgnoreHttpStatus = localServer.getOfflineIgnoreHttpStatus();
+            String        recordingDirectory              = localServer.getRecordingDirectory();
+            List<String>  offlineMatchHeaders             = localServer.getOfflineMatchHeaders();
+            List<String>  offlineIgnoreParameters         = localServer.getOfflineIgnoreParameters();
+            boolean       offlineCyclicResponses          = localServer.isOfflineCyclicResponses();
+            List<Integer> offlineIgnoreHttpStatus         = localServer.getOfflineIgnoreHttpStatus();
 
-            IHttpRequester requester               = null;
-            if (isOnline)
+            List<String>  listMappingFromUrl              = new ArrayList<String>();
+            List<String>  listMappingRecordingDirectories = new ArrayList<String>();
+            List<Boolean> listMappingIsOnline             = new ArrayList<Boolean>();
+            String        uriPattern                      = null;
+            boolean       hasDefaultUriPattern            = false;
+            for (UrlMapping urlMapping : localServer.getUrlMappings())
             {
-                requester = INSTANCE.new OnlineHttpRequesterWrapper(RequesterBootstrap
-                        .bootstrap()
+                uriPattern = new URL(urlMapping.getFromUrl()).getPath() + "*";
+                if ("/*".equals(uriPattern))
+                {
+                    hasDefaultUriPattern = true;
+                }
+                listMappingFromUrl.add(uriPattern);
+                listMappingRecordingDirectories.add(urlMapping.getRecordingDirectory());
+                listMappingIsOnline.add(urlMapping.isOnline());
+            }
+            if (!hasDefaultUriPattern)
+            {
+                // default handler on this virtual server:
+                listMappingFromUrl.add("/*");
+                listMappingRecordingDirectories.add(recordingDirectory);
+                listMappingIsOnline.add(isOnline);
+            }
+
+            int size = Math.min(listMappingFromUrl.size(), listMappingRecordingDirectories.size());
+            size = Math.min(size, listMappingIsOnline.size());
+            for (int i = 0; i < size; i++)
+            {
+                recordingDirectory = listMappingRecordingDirectories.get(i);
+                isOnline           = listMappingIsOnline.get(i);
+                uriPattern         = listMappingFromUrl.get(i);
+                IHttpRequester requester = null;
+                if (isOnline)
+                {
+                    requester = INSTANCE.new OnlineHttpRequesterWrapper(RequesterBootstrap
+                            .bootstrap()
+                            .setSslContext(HttpUtils.getSSLContext(
+                                    isHttps,
+                                    keystoreFilename,
+                                    keystorePassword,
+                                    truststoreFilename,
+                                    truststorePassword,
+                                    clientAuth))
+                            .setSslSetupHandler(getSSLHandlerWithWeakTlsAndCiphersEnabled())
+                            .setConnectionReuseStrategy(INSTANCE.new NotKeepAliveReuseStrategy())
+                            .setStreamListener(INSTANCE.new HttpRequesterStreamListener())
+                            .setConnPoolListener(INSTANCE.new HttpRequesterConnPoolListener())
+                            .create());
+                }
+                else
+                {
+                    requester = INSTANCE.new OfflineHttpRequester(
+                            recordingDirectory,
+                            offlineMatchHeaders,
+                            offlineIgnoreParameters,
+                            offlineCyclicResponses,
+                            offlineIgnoreHttpStatus);
+                }
+
+                serverBootstrap
                         .setSslContext(HttpUtils.getSSLContext(
                                 isHttps,
                                 keystoreFilename,
@@ -130,51 +183,34 @@ public class ProxyServer
                                 clientAuth))
                         .setSslSetupHandler(getSSLHandlerWithWeakTlsAndCiphersEnabled())
                         .setConnectionReuseStrategy(INSTANCE.new NotKeepAliveReuseStrategy())
-                        .setStreamListener(INSTANCE.new HttpRequesterStreamListener())
-                        .setConnPoolListener(INSTANCE.new HttpRequesterConnPoolListener())
-                        .create());
+                        .setCharCodingConfig(
+                                CharCodingConfig
+                                        .custom()
+                                        .setCharset(Constants.UTF8_CHARSET)
+                                        .build())
+                        .setListenerPort(localHostPort)
+                        .setStreamListener(INSTANCE.new HttpServerStreamListener())
+                        .setExceptionListener(INSTANCE.new HttpServerExceptionListener())
+                        .registerVirtual(canonicalLocalHostName, uriPattern,
+                                INSTANCE.new ProxyHandler(isOnline,
+                                        requester,
+                                        localHostName,
+                                        preserveHostHeader,
+                                        recordingDirectory,
+                                        offlineMatchHeaders,
+                                        offlineIgnoreParameters,
+                                        offlineCyclicResponses,
+                                        offlineIgnoreHttpStatus));
+                System.out.println("Iniciando servidor virtual na porta " + localHostPort + " [" + localHostName + "]");
+                Runtime.getRuntime().addShutdownHook(INSTANCE.new ApplicationShutdownHook(requester));
             }
-            else
-            {
-                requester = INSTANCE.new OfflineHttpRequester(
-                        recordingDirectory,
-                        offlineMatchHeaders,
-                        offlineIgnoreParameters,
-                        offlineCyclicResponses,
-                        offlineIgnoreHttpStatus);
-            }
-
-            serverBootstrap
-                    .setSslContext(HttpUtils.getSSLContext(
-                            isHttps,
-                            keystoreFilename,
-                            keystorePassword,
-                            truststoreFilename,
-                            truststorePassword,
-                            clientAuth))
-                    .setSslSetupHandler(getSSLHandlerWithWeakTlsAndCiphersEnabled())
-                    .setConnectionReuseStrategy(INSTANCE.new NotKeepAliveReuseStrategy())
-                    .setCharCodingConfig(
-                            CharCodingConfig
-                                    .custom()
-                                    .setCharset(Constants.UTF8_CHARSET)
-                                    .build())
-                    .setListenerPort(localHostPort)
-                    .setStreamListener(INSTANCE.new HttpServerStreamListener())
-                    .setExceptionListener(INSTANCE.new HttpServerExceptionListener())
-                    .registerVirtual(canonicalLocalHostName, "*",
-                            INSTANCE.new ProxyHandler(isOnline,
-                                    requester,
-                                    localHostName,
-                                    preserveHostHeader,
-                                    recordingDirectory,
-                                    offlineMatchHeaders,
-                                    offlineIgnoreParameters,
-                                    offlineCyclicResponses,
-                                    offlineIgnoreHttpStatus));
-            System.out.println("Iniciando servidor virtual na porta " + localHostPort + " [" + localHostName + "]");
-            Runtime.getRuntime().addShutdownHook(INSTANCE.new ApplicationShutdownHook(requester));
         }
+
+        // register default handler
+        serverBootstrap
+                .setListenerPort(localHostPort)
+                .registerVirtual(Constants.LOCALHOST, "*", getDefaultLocalhostHandler());
+
         final HttpServer server = serverBootstrap.create();
         server.start();
         System.out.println("Ouvindo solicitações na porta " + localHostPort);
@@ -233,7 +269,7 @@ public class ProxyServer
                     HttpUtils.copyBody(incomingRequest, tempRequest, null);
                     outgoingRequest = tempRequest;
 
-                    NetworkView.getInstance().addRequest(outgoingRequest, fromUrl, toUrl);
+                    NetworkView.getInstance().addRequest(false, outgoingRequest, fromUrl, toUrl);
 
                     String virtualServer = HttpUtils.extractHost(incomingRequest.getUri());
 
@@ -246,7 +282,7 @@ public class ProxyServer
                                     + "' não está mapeado para ser atendido por esta ferramenta",
                             Constants.UTF8_CHARSET));
 
-                    NetworkView.getInstance().updateRequestWithResponse(outgoingRequest, outgoingResponse, null, fromUrl, toUrl);
+                    NetworkView.getInstance().updateRequestWithResponse(false, outgoingRequest, outgoingResponse, null, fromUrl, toUrl);
                 }
                 catch (Throwable e)
                 {
@@ -257,26 +293,11 @@ public class ProxyServer
                     outgoingResponse.setEntity(new StringEntity(
                             StringUtils.getFullErrorMessage(e),
                             Constants.UTF8_CHARSET));
-                    NetworkView.getInstance().updateRequestWithResponse(outgoingRequest, outgoingResponse, null, fromUrl, toUrl);
+                    NetworkView.getInstance().updateRequestWithResponse(false, outgoingRequest, outgoingResponse, null, fromUrl, toUrl);
                 }
             }
 
         };
-    }
-
-    private static boolean needsDefaultLocalhostMapping(List<LocalServer> localServerList)
-            throws MalformedURLException
-    {
-        for (LocalServer localServer : localServerList)
-        {
-            String localHostName          = localServer.getHostname();
-            String canonicalLocalHostName = new URL(localHostName).getHost();
-            if (Constants.LOCALHOST.equals(canonicalLocalHostName))
-            {
-                return false;
-            }
-        }
-        return true;
     }
 
     private class NotKeepAliveReuseStrategy
@@ -568,7 +589,7 @@ public class ProxyServer
                         // ignore
                     }
                 }
-                NetworkView.getInstance().updateRequestWithResponse(outgoingRequest, outgoingResponse, null, fromUrl, toUrl);
+                NetworkView.getInstance().updateRequestWithResponse(ONLINE, outgoingRequest, outgoingResponse, null, fromUrl, toUrl);
             }
         }
 
@@ -642,7 +663,7 @@ public class ProxyServer
                     outgoingRequest = requestStub;
                 }
 
-                NetworkView.getInstance().addRequest(outgoingRequest, fromUrl, toUrl);
+                NetworkView.getInstance().addRequest(ONLINE, outgoingRequest, fromUrl, toUrl);
 
                 final HttpCoreContext clientContext = HttpCoreContext.create();
                 incomingResponse = REQUESTER.execute(
@@ -666,7 +687,7 @@ public class ProxyServer
                     HttpUtils.copyHeaders(incomingResponse, outgoingResponse, null, PRESERVE_HOST_HEADER);
                     HttpUtils.copyBody(incomingResponse, outgoingResponse, null);
                 }
-                NetworkView.getInstance().updateRequestWithResponse(outgoingRequest, outgoingResponse, outgoingResponse.getHeader(Constants.MAPPING_FILE_NAME) != null, fromUrl, toUrl);
+                NetworkView.getInstance().updateRequestWithResponse(ONLINE, outgoingRequest, outgoingResponse, outgoingResponse.getHeader(Constants.MAPPING_FILE_NAME) != null, fromUrl, toUrl);
             }
             finally
             {

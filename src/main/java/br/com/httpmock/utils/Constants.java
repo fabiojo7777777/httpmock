@@ -36,6 +36,7 @@ public interface Constants
     public static final String          OFFLINE_IGNORE_HTTP_STATUS                 = "OfflineIgnoreHttpStatus";
     public static final String          ONLINE                                     = "Online";
     public static final String          OFFLINE                                    = "Offline";
+    public static final String          ONLINE_RECORDING                           = "Online,Recording";
     public static final String          UTF8                                       = "UTF-8";
     public static final Charset         UTF8_CHARSET                               = Charset.forName(UTF8);
     public static final String          ALL                                        = "ALL";

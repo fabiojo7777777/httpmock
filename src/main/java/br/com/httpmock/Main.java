@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
-import java.util.concurrent.ConcurrentHashMap;
 
 import javax.swing.JOptionPane;
 
@@ -140,20 +139,20 @@ public class Main
 
     public static class LocalServer
     {
-        private boolean             online      = true;
-        private String              hostname;
-        private String              keystore;
-        private String              keystorePassword;
-        private String              truststore;
-        private String              truststorePassword;
-        private boolean             clientAuth;
-        private boolean             preserveHostHeader;
-        private String              recordingDirectory;
-        private List<String>        offlineMatchHeaders;
-        private List<String>        offlineIgnoreParameters;
-        private boolean             offlineCyclicResponses;
-        private List<Integer>       offlineIgnoreHttpStatus;
-        private Map<String, String> urlMappings = new ConcurrentHashMap<String, String>();
+        private boolean          online      = true;
+        private String           hostname;
+        private String           keystore;
+        private String           keystorePassword;
+        private String           truststore;
+        private String           truststorePassword;
+        private boolean          clientAuth;
+        private boolean          preserveHostHeader;
+        private String           recordingDirectory;
+        private List<String>     offlineMatchHeaders;
+        private List<String>     offlineIgnoreParameters;
+        private boolean          offlineCyclicResponses;
+        private List<Integer>    offlineIgnoreHttpStatus;
+        private List<UrlMapping> urlMappings = new Vector<UrlMapping>();
 
         public LocalServer(boolean online,
                 String hostname,
@@ -250,14 +249,71 @@ public class Main
             return offlineIgnoreHttpStatus;
         }
 
-        public void addUrlMapping(String fromUrl, String toUrl)
+        public void addUrlMapping(String fromUrl, String toUrl, String operatingMode)
         {
-            this.urlMappings.put(fromUrl, toUrl);
+            if (operatingMode == null)
+            {
+                this.urlMappings.add(new UrlMapping(fromUrl, toUrl, recordingDirectory, online));
+            }
+            else if (Constants.ONLINE.equalsIgnoreCase(operatingMode))
+            {
+                this.urlMappings.add(new UrlMapping(fromUrl, toUrl, null, true));
+            }
+            else if (Constants.ONLINE_RECORDING.equalsIgnoreCase(operatingMode))
+            {
+                this.urlMappings.add(new UrlMapping(fromUrl, toUrl, recordingDirectory, true));
+            }
+            else if (Constants.OFFLINE.equalsIgnoreCase(operatingMode))
+            {
+                this.urlMappings.add(new UrlMapping(fromUrl, toUrl, recordingDirectory, false));
+            }
+            else
+            {
+                throw new RuntimeException("Modo de operação " + operatingMode + " não cadastrado");
+            }
         }
 
-        public Map<String, String> getUrlMappings()
+        public List<UrlMapping> getUrlMappings()
         {
-            return new ConcurrentHashMap<String, String>(urlMappings);
+            return new Vector<UrlMapping>(urlMappings);
+        }
+
+    }
+
+    public static class UrlMapping
+    {
+        private String  fromUrl;
+        private String  toUrl;
+        private String  recordingDirectory;
+        private Boolean online;
+
+        public UrlMapping(String fromUrl, String toUrl, String recordingDirectory, boolean online)
+        {
+            super();
+            this.fromUrl            = fromUrl;
+            this.toUrl              = toUrl;
+            this.recordingDirectory = recordingDirectory;
+            this.online             = online;
+        }
+
+        public String getFromUrl()
+        {
+            return fromUrl;
+        }
+
+        public String getToUrl()
+        {
+            return toUrl;
+        }
+
+        public String getRecordingDirectory()
+        {
+            return recordingDirectory;
+        }
+
+        public Boolean isOnline()
+        {
+            return online;
         }
 
     }
@@ -274,6 +330,7 @@ public class Main
             boolean       online                  = false;
             List<String>  path                    = new ArrayList<String>();
             List<String>  toUrl                   = new ArrayList<String>();
+            List<String>  operatingMode           = new ArrayList<String>();
             String        recordingDirectory      = null;
             boolean       clientAuth              = false;
             boolean       preserveHostHeader      = false;
@@ -329,6 +386,7 @@ public class Main
                             online,
                             path,
                             toUrl,
+                            operatingMode,
                             recordingDirectory,
                             clientAuth,
                             preserveHostHeader,
@@ -347,6 +405,7 @@ public class Main
                     online                  = false;
                     path                    = new ArrayList<String>();
                     toUrl                   = new ArrayList<String>();
+                    operatingMode           = new ArrayList<String>();
                     recordingDirectory      = null;
                     clientAuth              = false;
                     preserveHostHeader      = false;
@@ -363,7 +422,6 @@ public class Main
                 }
                 else if (Constants.PROXY_PASS_AND_REVERSE.equalsIgnoreCase(parameter.getKey()))
                 {
-                    online = true;
                     String[] values = parameter.getValue().split(" ");
                     if (values.length < 2)
                     {
@@ -405,9 +463,43 @@ public class Main
                                     + " não possui uma url ou autoridade de url válida ['"
                                     + values[1]
                                     + "']");
+                    if (values.length >= 3)
+                    {
+                        if (!Constants.ONLINE.equalsIgnoreCase(values[2])
+                                && !Constants.ONLINE_RECORDING.equalsIgnoreCase(values[2])
+                                && !Constants.OFFLINE.equalsIgnoreCase(values[2]))
+                        {
+                            throw new RuntimeException(
+                                    "O parâmetro '"
+                                            + Constants.PROXY_PASS_AND_REVERSE
+                                            + "' no arquivo de configuração '"
+                                            + configFileName
+                                            + "', na linha "
+                                            + parameter.getLineNumber()
+                                            + " não possui um modo de operação válido. Modos válidos: ["
+                                            + "'" + Constants.ONLINE.toUpperCase() + "',"
+                                            + "'" + Constants.ONLINE_RECORDING.toUpperCase() + "', "
+                                            + "'" + Constants.OFFLINE.toUpperCase() + "']. Modo informado: ['"
+                                            + values[2]
+                                            + "']");
+                        }
+                    }
 
                     path.add(values[0]);
                     toUrl.add(values[1]);
+                    if (values.length >= 3)
+                    {
+                        if (!Constants.OFFLINE.toUpperCase().equalsIgnoreCase(values[2]))
+                        {
+                            online = true;
+                        }
+                        operatingMode.add(values[2]);
+                    }
+                    else
+                    {
+                        online = true;
+                        operatingMode.add(null);
+                    }
                 }
                 else if (Constants.RECORDING_DIRECTORY.equalsIgnoreCase(parameter.getKey()))
                 {
@@ -590,6 +682,7 @@ public class Main
                     online,
                     path,
                     toUrl,
+                    operatingMode,
                     recordingDirectory,
                     clientAuth,
                     preserveHostHeader,
@@ -614,6 +707,7 @@ public class Main
             boolean online,
             List<String> path,
             List<String> toUrl,
+            List<String> operatingMode,
             String recordingDirectoryEspecified,
             boolean clientAuth,
             boolean preserveHostHeader,
@@ -675,6 +769,7 @@ public class Main
                         online,
                         path,
                         toUrl,
+                        operatingMode,
                         recordingDirectory,
                         clientAuth,
                         preserveHostHeader,
@@ -694,6 +789,10 @@ public class Main
 
     private static String appendProtocolOnDirectoryName(String protocol, String recordingDirectory)
     {
+        if (recordingDirectory == null)
+        {
+            return null;
+        }
         int idx1 = recordingDirectory.lastIndexOf("/");
         if (idx1 == -1)
         {
@@ -721,6 +820,7 @@ public class Main
             boolean online,
             List<String> path,
             List<String> toUrl,
+            List<String> operatingMode,
             String recordingDirectory,
             boolean clientAuth,
             boolean preserveHostHeader,
@@ -793,10 +893,13 @@ public class Main
                 offlineCyclicResponses,
                 offlineIgnoreHttpStatus);
         localServerList.add(localServer);
-        for (int i = 0, size = Math.min(path.size(), toUrl.size()); i < size; i++)
+        int size = Math.min(path.size(), toUrl.size());
+        size = Math.min(size, operatingMode.size());
+        for (int i = 0; i < size; i++)
         {
-            String fromUrl = virtualServer + path.get(i);
-            String toUrl1  = getToUrlWithDefaultProtocolWhenNoProtocolBasedOnFromUrl(toUrl.get(i), fromUrl);
+            String fromUrl        = virtualServer + path.get(i);
+            String toUrl1         = getToUrlWithDefaultProtocolWhenNoProtocolBasedOnFromUrl(toUrl.get(i), fromUrl);
+            String operatingMode1 = operatingMode.get(i);
             ValidatorUtils.validUrl(toUrl1,
                     "A url ou a autoridade de url '"
                             + toUrl.get(i)
@@ -804,12 +907,30 @@ public class Main
                             + configFileName
                             + (parameter == null ? "' antes da última linha" : "', antes da linha " + parameter.getLineNumber())
                             + " não é válida");
-            HttpUtils.addProxyMapping(fromUrl, toUrl1);
-            localServer.addUrlMapping(fromUrl, toUrl1);
+            if (!Constants.OFFLINE.equalsIgnoreCase(operatingMode1))
+            {
+                HttpUtils.addProxyMapping(fromUrl, toUrl1);
+            }
+            if (recordingDirectory == null)
+            {
+                if (Constants.ONLINE_RECORDING.equalsIgnoreCase(operatingMode1)
+                        || Constants.OFFLINE.equalsIgnoreCase(operatingMode1))
+                {
+                    throw new RuntimeException(
+                            "O parâmetro '"
+                                    + Constants.RECORDING_DIRECTORY
+                                    + "' no arquivo de configuração '"
+                                    + configFileName
+                                    + (parameter == null ? "' antes da última linha" : "', antes da linha " + parameter.getLineNumber())
+                                    + " é obrigatório quando é usado o modo de operação '"
+                                    + operatingMode1 + "'");
+                }
+            }
+            localServer.addUrlMapping(fromUrl, toUrl1, operatingMode1);
         }
         if (path.size() == 0 || toUrl.size() == 0)
         {
-            localServer.addUrlMapping(virtualServer, "");
+            localServer.addUrlMapping(virtualServer, "", null);
         }
     }
 

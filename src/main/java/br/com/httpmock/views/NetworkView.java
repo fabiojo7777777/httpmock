@@ -9,7 +9,6 @@ import java.awt.Toolkit;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map.Entry;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -34,6 +33,7 @@ import org.apache.hc.core5.http.Header;
 import org.apache.hc.core5.http.HttpStatus;
 
 import br.com.httpmock.Main.LocalServer;
+import br.com.httpmock.Main.UrlMapping;
 import br.com.httpmock.utils.Constants;
 import br.com.httpmock.utils.HttpUtils;
 import br.com.httpmock.utils.StringUtils;
@@ -212,20 +212,20 @@ public class NetworkView
 
                                            public Component prepareRenderer(TableCellRenderer renderer, int row, int colIndex)
                                            {
-                                               JComponent cell   = (JComponent) super.prepareRenderer(renderer, row, colIndex);
-                                               boolean    online = (" " + Constants.ONLINE).equals(getValueAt(row, convertColumnIndexToView(MODE_COLUMN)));
+                                               JComponent cell    = (JComponent) super.prepareRenderer(renderer, row, colIndex);
+                                               boolean    offline = (" " + Constants.OFFLINE).equals(getValueAt(row, convertColumnIndexToView(MODE_COLUMN)));
                                                if (isCellSelected(row, colIndex))
                                                {
-                                                   if (online)
+                                                   if (offline)
                                                    {
-                                                       cell.setBackground(new Color(26, 115, 232));
-                                                       // cell.setBackground(new Color(245, 245, 255));
+                                                       cell.setBackground(new Color(232, 115, 26));
+                                                       // cell.setBackground(new Color(232, 115, 26));
                                                        cell.setForeground(Color.WHITE);
                                                    }
                                                    else
                                                    {
-                                                       cell.setBackground(new Color(232, 115, 26));
-                                                       // cell.setBackground(new Color(232, 115, 26));
+                                                       cell.setBackground(new Color(26, 115, 232));
+                                                       // cell.setBackground(new Color(245, 245, 255));
                                                        cell.setForeground(Color.WHITE);
                                                    }
                                                }
@@ -233,30 +233,30 @@ public class NetworkView
                                                {
                                                    if (row % 2 == 0)
                                                    {
-                                                       if (online)
-                                                       {
-                                                           cell.setBackground(new Color(232, 242, 255));
-                                                           // cell.setBackground(new Color(235, 235, 255));
-                                                       }
-                                                       else
+                                                       if (offline)
                                                        {
                                                            cell.setBackground(new Color(255, 242, 232));
                                                            // cell.setBackground(new Color(255, 190, 101));
                                                            // cell.setBackground(new Color(255, 235, 235));
                                                        }
+                                                       else
+                                                       {
+                                                           cell.setBackground(new Color(232, 242, 255));
+                                                           // cell.setBackground(new Color(235, 235, 255));
+                                                       }
                                                    }
                                                    else
                                                    {
-                                                       if (online)
-                                                       {
-                                                           cell.setBackground(new Color(212, 222, 235));
-                                                           // cell.setBackground(new Color(245, 245, 255));
-                                                       }
-                                                       else
+                                                       if (offline)
                                                        {
                                                            cell.setBackground(new Color(235, 222, 212));
                                                            // cell.setBackground(new Color(255, 240, 151));
                                                            // cell.setBackground(new Color(255, 245, 245));
+                                                       }
+                                                       else
+                                                       {
+                                                           cell.setBackground(new Color(212, 222, 235));
+                                                           // cell.setBackground(new Color(245, 245, 255));
                                                        }
                                                    }
                                                    cell.setForeground(FONT_COLOR);
@@ -466,7 +466,7 @@ public class NetworkView
         this.infoTablePanel.setVisible(!this.infoTablePanel.isVisible());
     }
 
-    public synchronized void addRequest(final ClassicHttpRequest request, final String fromUrl, String toUrl)
+    public synchronized void addRequest(final boolean isOnlineVirtualServer, final ClassicHttpRequest request, final String fromUrl, String toUrl)
     {
         String recorded     = "?";
         String urlPath      = request.getPath();
@@ -481,7 +481,7 @@ public class NetworkView
         newRow[STATUS_COLUMN]       = " " + status;
         newRow[URL_PATH_COLUMN]     = " " + urlPath;
         newRow[CONTENT_TYPE_COLUMN] = " " + responseType;
-        newRow[CONTENT_COLUMN]      = getContent(request, fromUrl, toUrl);
+        newRow[CONTENT_COLUMN]      = getContent(isOnlineVirtualServer, request, fromUrl, toUrl);
         newRow[REQUEST_ID_COLUMN]   = StringUtils.getHashCode(request);
         newRow[RESPONSE_ID_COLUMN]  = null;
         newRow[SEQUENCE_COLUMN]     = " " + StringUtils.fillLeftWithZeros(Integer.toString(this.sequence));
@@ -492,7 +492,7 @@ public class NetworkView
         this.topPanel.getVerticalScrollBar().setValue(value);
     }
 
-    public synchronized void updateRequestWithResponse(final ClassicHttpRequest request, final ClassicHttpResponse response, final Boolean recorded, final String fromUrl, final String toUrl)
+    public synchronized void updateRequestWithResponse(final boolean isOnlineVirtualServer, final ClassicHttpRequest request, final ClassicHttpResponse response, final Boolean recorded, final String fromUrl, final String toUrl)
     {
         String recordedText = "?";
         if (recorded != null)
@@ -525,7 +525,7 @@ public class NetworkView
         newRow[STATUS_COLUMN]       = " " + status;
         newRow[URL_PATH_COLUMN]     = " " + urlPath;
         newRow[CONTENT_TYPE_COLUMN] = " " + responseType;
-        newRow[CONTENT_COLUMN]      = getContent(recorded, request, response, fromUrl, toUrl);
+        newRow[CONTENT_COLUMN]      = getContent(isOnlineVirtualServer, recorded, request, response, fromUrl, toUrl);
         newRow[REQUEST_ID_COLUMN]   = StringUtils.getHashCode(request);
         newRow[RESPONSE_ID_COLUMN]  = StringUtils.getHashCode(response);
         newRow[SEQUENCE_COLUMN]     = null;
@@ -534,21 +534,25 @@ public class NetworkView
         updateResponse(newRow);
     }
 
-    private String getContent(final ClassicHttpRequest request, final String fromUrl, String toUrl)
+    private String getContent(final boolean isOnlineVirtualServer, final ClassicHttpRequest request, final String fromUrl, String toUrl)
     {
-        return getContent(null, request, (ClassicHttpResponse) null, fromUrl, toUrl);
+        return getContent(isOnlineVirtualServer, null, request, (ClassicHttpResponse) null, fromUrl, toUrl);
     }
 
-    private String getContent(final Boolean recorded, final ClassicHttpRequest request, final ClassicHttpResponse response, final String fromUrl, final String toUrl)
+    private String getContent(final boolean isOnlineVirtualServer, final Boolean recorded, final ClassicHttpRequest request, final ClassicHttpResponse response, final String fromUrl, final String toUrl)
     {
         final StringBuffer sb = new StringBuffer();
 
         // GERAL
         sb.append("Geral");
         sb.append("\n\tRequest URL: " + fromUrl);
-        if (fromUrl != null && !fromUrl.equals(toUrl))
+        if (isOnlineVirtualServer)
         {
             sb.append("\n\tProxied To:  " + toUrl);
+        }
+        else
+        {
+            sb.append("\n\tProxied To:  <<Leitura em disco>>");
         }
         sb.append("\n\tRequest Method: " + request.getMethod());
         sb.append("\n\tStatus Code: ");
@@ -752,26 +756,35 @@ public class NetworkView
         clearInfo();
         for (final LocalServer server : this.localServers)
         {
-            for (Entry<String, String> mapping : server.getUrlMappings().entrySet())
+            for (UrlMapping mapping : server.getUrlMappings())
             {
-                String         fromUrl = mapping.getKey();
-                String         toUrl   = mapping.getValue();
+                String         fromUrl            = mapping.getFromUrl();
+                String         toUrl              = mapping.getToUrl();
+                boolean        isOnline           = mapping.isOnline();
+                String         recordingDirectory = mapping.getRecordingDirectory();
 
-                final String[] newRow  = new String[INFO_COLUMN_NAMES.length];
-                if (server.isOnline())
+                final String[] newRow             = new String[INFO_COLUMN_NAMES.length];
+                if (isOnline)
                 {
-                    newRow[MODE_COLUMN] = " " + Constants.ONLINE;
+                    if (recordingDirectory == null)
+                    {
+                        newRow[MODE_COLUMN] = " " + Constants.ONLINE;
+                    }
+                    else
+                    {
+                        newRow[MODE_COLUMN] = " " + Constants.ONLINE_RECORDING;
+                    }
                 }
                 else
                 {
                     newRow[MODE_COLUMN] = " " + Constants.OFFLINE;
                 }
-                if (server.getRecordingDirectory() != null)
+                if (recordingDirectory != null)
                 {
-                    newRow[RECORDING_DIRECTORY_COLUMN] = " " + server.getRecordingDirectory();
+                    newRow[RECORDING_DIRECTORY_COLUMN] = " " + recordingDirectory;
                 }
                 newRow[LOCAL_SERVER_COLUMN] = " " + fromUrl;
-                if (server.isOnline())
+                if (isOnline)
                 {
                     newRow[PROXIED_SERVER_COLUMN] = " " + toUrl;
                 }
