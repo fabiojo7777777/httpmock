@@ -34,6 +34,7 @@
 									</mainClass>
 								</manifest>
 							</archive>
+							<outputDirectory>dist/</outputDirectory>
 							<descriptorRefs>
 								<descriptorRef>jar-with-dependencies</descriptorRef>
 							</descriptorRefs>
